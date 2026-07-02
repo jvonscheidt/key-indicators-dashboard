@@ -1,0 +1,16 @@
+# Production Streamlit settings (committed; the secret lives in secrets.toml,
+# which is gitignored). The listen port is set at launch by startup.sh from
+# the PORT env var App Service provides, so it is intentionally not pinned here.
+
+[server]
+headless = true
+# App Service terminates TLS and proxies to the app on a single origin. If the
+# websocket connection hangs ("Please wait…") behind the proxy, set:
+#   enableCORS = false
+# (leaving XSRF protection on is fine for this same-origin deployment).
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+primaryColor = "#0078d4"
