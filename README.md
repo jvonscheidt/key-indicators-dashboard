@@ -269,3 +269,7 @@ refresh button, data freshness timestamps, threshold config expander.
 | M2 | Scraping layer | CAPE + Put/Call scrapers with fallback logic. |
 | M3 | UI & charting | Full Streamlit layout with Plotly charts, metrics, sidebar. |
 | M4 | Polish & deploy | Threshold alerts, error badges, caching tuned, deployed to Streamlit Cloud. |
+
+## License
+
+GPL-2.0-or-later. See [`LICENSE`](LICENSE).
