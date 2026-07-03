@@ -7,10 +7,7 @@ monitoring. Solo use, minimal infrastructure, zero recurring cost.
 This file is both the spec and the build-state summary: the authoritative
 requirements (v1.0, 2026-06-07) are preserved verbatim in
 [Requirements](#requirements-v10--2026-06-07) below — code comments cite
-their section numbers (`§8`, `Risks §9`) and IDs (`FR-06`, `NFR-02`). Where
-the build deviates from the spec (EM-spread series ID, CBOE scrape method,
-Azure instead of Streamlit Community Cloud), the build-state sections here
-say so.
+their section numbers (`§8`, `Risks §9`) and IDs (`FR-06`, `NFR-02`). 
 
 ## Indicators (7)
 
@@ -268,7 +265,7 @@ refresh button, data freshness timestamps, threshold config expander.
 | M1 | Scaffold & data layer | Project structure, config, yfinance + FRED wrappers working. |
 | M2 | Scraping layer | CAPE + Put/Call scrapers with fallback logic. |
 | M3 | UI & charting | Full Streamlit layout with Plotly charts, metrics, sidebar. |
-| M4 | Polish & deploy | Threshold alerts, error badges, caching tuned, deployed to Streamlit Cloud. |
+| M4 | Polish & deploy | Threshold alerts, error badges, caching tuned, deploy to Azure. |
 
 ## License
 
