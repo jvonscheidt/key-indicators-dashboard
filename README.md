@@ -25,7 +25,7 @@ Alert thresholds (FR-05) are configured for VIX (>30), CAPE (>35),
 Put/Call (>1.0), and EM spread (>500 bps) in `config.py`.
 
 > **Put/Call note:** CBOE retired the public CSV feed, so `fetch_putcall`
-> now scrapes the equity ratio out of the daily market-statistics page's
+> now scrapes the total ratio out of the daily market-statistics page's
 > server-rendered payload (`PUTCALL_URL` / `PUTCALL_RATIO_LABEL`). The page
 > has no bulk history feed, so the recent window (capped at
 > `PUTCALL_HISTORY_DAYS`) is backfilled by querying each weekday's `?dt=`
@@ -192,7 +192,7 @@ recurring cost.
 | Shiller CAPE (S&P 500) | CAPE via Shiller site | HTML scrape (multpl.com) | Monthly | Single value + hist. line |
 | S&P 500 vs 200-day MA | `^GSPC` | yfinance | Daily | Dual-line (price + MA) |
 | EUR/USD | `EURUSD=X` | yfinance | Near-RT | Line chart + Δ% |
-| Put/Call Ratio (CBOE Equity) | CBOE totals page | HTML scrape (cboe.com) | Daily (EOD) | Bar chart + 10-day avg line |
+| Put/Call Ratio (CBOE Total) | CBOE totals page | HTML scrape (cboe.com) | Daily (EOD) | Bar chart + 10-day avg line |
 | EM Sovereign Bond Spread | BAMEMBBSOAS (ICE BofA) | FRED API | Daily | Area chart + threshold line |
 
 ### §4 Technology stack

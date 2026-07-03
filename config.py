@@ -122,7 +122,7 @@ INDICATORS: dict[str, Indicator] = {
     ),
     "putcall": Indicator(
         key="putcall",
-        label="Put/Call Ratio (CBOE Equity)",
+        label="Put/Call Ratio (CBOE Total)",
         source="scrape",
         symbol="putcall",
         threshold=Threshold(level=1.0, direction="above"),
@@ -160,7 +160,7 @@ CAPE_TABLE_ID = "datatable"
 #: single point (Risks §9: no interpolation).
 PUTCALL_URL = "https://www.cboe.com/markets/us/options/market-statistics/daily/"
 #: The exact row name to read out of the page payload.
-PUTCALL_RATIO_LABEL = "EQUITY PUT/CALL RATIO"
+PUTCALL_RATIO_LABEL = "TOTAL PUT/CALL RATIO"
 #: There is no bulk history feed, so the chart is backfilled one trading day
 #: at a time via the page's ``?dt=YYYY-MM-DD`` parameter. Cap the window (each
 #: day is a full-page fetch — kept modest for politeness/rate limits, Risks
