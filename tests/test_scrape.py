@@ -76,15 +76,15 @@ def test_fetch_cape_failure_degrades(monkeypatch):
 
 
 def _render_day(template: str, date_str: str, value: str) -> str:
-    """Re-stamp the captured page fixture with a given date + equity value."""
-    return template.replace("0.67", value).replace("2026-06-05", date_str)
+    """Re-stamp the captured page fixture with a given date + total value."""
+    return template.replace("0.97", value).replace("2026-06-05", date_str)
 
 
 def test_fetch_putcall_backfills_history(monkeypatch, putcall_html):
     # Simulate the ?dt= per-day pages: each queried date resolves to the most
     # recent trading day <= it (as the real site does), so weekends/holidays
     # collapse onto the prior session and de-duplicate.
-    data = {"2026-06-03": "0.49", "2026-06-04": "0.44", "2026-06-05": "0.67"}
+    data = {"2026-06-03": "0.49", "2026-06-04": "0.44", "2026-06-05": "0.97"}
     sessions = sorted(data)
 
     def fake_get(url: str) -> str:
@@ -104,7 +104,7 @@ def test_fetch_putcall_backfills_history(monkeypatch, putcall_html):
     assert result.fetched_at == datetime(2026, 6, 8, tzinfo=timezone.utc)
     assert len(result.series) == 3  # three distinct sessions, deduped
     assert list(result.series.index.strftime("%Y-%m-%d")) == sessions  # sorted
-    assert result.value == pytest.approx(0.67)  # latest session
+    assert result.value == pytest.approx(0.97)  # latest session
     assert result.previous == pytest.approx(0.44)  # prior session -> delta
     assert result.timestamp.date().isoformat() == "2026-06-05"
 
@@ -116,7 +116,7 @@ def test_fetch_putcall_single_session_no_delta(monkeypatch, putcall_html):
 
     assert result.ok
     assert len(result.series) == 1
-    assert result.value == pytest.approx(0.67)  # equity row, not TOTAL/INDEX
+    assert result.value == pytest.approx(0.97)  # total row, not EQUITY/INDEX
     assert result.previous is None
     assert result.timestamp.date().isoformat() == "2026-06-05"
 

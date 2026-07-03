@@ -1,4 +1,4 @@
-"""HTML scrapers: Shiller CAPE (multpl.com) and CBOE Put/Call ratio.
+"""HTML scrapers: Shiller CAPE (multpl.com) and CBOE Total Put/Call ratio.
 
 Both return a :class:`FetchResult` so the UI treats them like every other
 source. Per Risks §9 the URLs / selectors are pinned in ``config.py`` (a site
@@ -107,7 +107,7 @@ def fetch_cape(label: str, lookback_days: int) -> FetchResult:
 
 
 # --------------------------------------------------------------------------
-# CBOE Equity Put/Call ratio
+# CBOE Total Put/Call ratio
 # --------------------------------------------------------------------------
 
 
@@ -150,7 +150,7 @@ def _fetch_putcall_day(date_str: str) -> tuple[pd.Timestamp, float] | None:
 
 
 def fetch_putcall(label: str, lookback_days: int) -> FetchResult:
-    """CBOE equity put/call ratio with a backfilled daily history.
+    """CBOE total put/call ratio with a backfilled daily history.
 
     The page has no bulk history feed, so the recent window (capped at
     ``PUTCALL_HISTORY_DAYS``) is reconstructed by querying each weekday's
