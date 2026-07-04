@@ -174,8 +174,7 @@ recurring cost.
   configurable alert thresholds.
 - Auto-refresh on a configurable interval (default: 15 min during market
   hours).
-- Deployable locally via `streamlit run` or on a free-tier cloud instance
-  (e.g., Streamlit Community Cloud).
+- Deployable via Azure App Services or similar cloud service
 
 **Out of scope**
 
