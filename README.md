@@ -9,7 +9,7 @@ requirements (v1.0, 2026-06-07) are preserved verbatim in
 [Requirements](#requirements-v10--2026-06-07) below — code comments cite
 their section numbers (`§8`, `Risks §9`) and IDs (`FR-06`, `NFR-02`). 
 
-## Indicators (7)
+## Indicators (8)
 
 | Indicator | Symbol / Series | Source | Status |
 |-----------|-----------------|--------|--------|
@@ -18,6 +18,7 @@ their section numbers (`§8`, `Risks §9`) and IDs (`FR-06`, `NFR-02`).
 | EUR/USD | `EURUSD=X` | yfinance | ✅ fetcher |
 | S&P 500 vs 200-day MA | `^GSPC` | yfinance | ✅ fetcher (MA overlay) |
 | EM Corporate Bond Spread | `BAMLEMCBPIOAS` | FRED API | ✅ fetcher |
+| Brent Crude Spot | `DCOILBRENTEU` | FRED API | ✅ fetcher (EIA daily spot) |
 | Shiller CAPE | multpl.com | HTML scrape | ✅ fetcher |
 | Put/Call Ratio | CBOE daily stats page | HTML scrape | ✅ fetcher (backfilled history) |
 
@@ -41,6 +42,7 @@ Put/Call (>1.0), and EM spread (>500 bps) in `config.py`.
 - **Data:** yfinance 1.4, fredapi 0.5, requests + beautifulsoup4 (scrapers)
 - **Resilience:** tenacity 9.1 (retry/backoff)
 - **Tests:** pytest 9
+- **Lint/format:** ruff 0.15 (enforced in CI)
 
 ## Layout
 
@@ -58,7 +60,8 @@ startup.sh         # App Service launch command (Streamlit on $PORT)
 scripts/
   azure-provision.sh   # one-time az CLI infra provisioning
 .github/workflows/
-  main_market-indicators-dashboard.yml   # Portal-managed: test + build + deploy on push to main
+  ci.yml                                 # ruff format --check + ruff check + pytest, on push & PRs
+  main_market-indicators-dashboard.yml   # Portal-managed: build + deploy on push to main
 .streamlit/
   config.toml      # committed prod settings (headless, theme, no usage stats)
 tests/
@@ -96,9 +99,9 @@ TTL; retries of a still-down source are throttled to one per
 .venv/bin/pip install -r requirements.txt
 ```
 
-The EM-spread tile needs a free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html),
+The EM-spread and Brent tiles (both FRED-sourced) need a free [FRED API key](https://fred.stlouisfed.org/docs/api/api_key.html),
 read from `FRED_API_KEY` (environment variable or `.streamlit/secrets.toml`).
-Without it that one tile degrades gracefully; the rest of the dashboard works.
+Without it those two tiles degrade gracefully; the rest of the dashboard works.
 
 ## Running
 
@@ -108,18 +111,19 @@ Without it that one tile degrades gracefully; the rest of the dashboard works.
 .venv/bin/pytest                 # run the unit tests
 ```
 
-## Current state (as of 2026-07-02)
+## Current state (as of 2026-07-06)
 
 Milestones 1–4 are complete. The data layer (yfinance + FRED + scrapers),
 the offline tests, and the full Streamlit UI (`app.py`) all exist and run
-end-to-end. `app.py` implements the §8 layout — three metric tiles with
-sparklines, the S&P/MA and CAPE panels, the Put/Call and EM panels — plus
-the sidebar (lookback selector, manual + auto refresh, threshold overrides,
-freshness timestamps). `st.cache_data` TTLs are applied per source via the
-`load()` dispatcher (NFR-02); threshold alerts, per-tile graceful
-degradation, and the stale last-good fallback work (FR-05/06, NFR-03).
-Deploy is wired up and live on Azure App Service (deviates from the spec's
-Streamlit Community Cloud target).
+end-to-end. `app.py` implements the §8 layout — four metric tiles with
+sparklines (VIX, DXY, EUR/USD, Brent), the S&P/MA and CAPE panels, the
+Put/Call and EM panels — plus the sidebar (lookback selector, manual + auto
+refresh, threshold overrides, freshness timestamps). `st.cache_data` TTLs
+are applied per source via the `load()` dispatcher (NFR-02); threshold
+alerts, per-tile graceful degradation, and the stale last-good fallback work
+(FR-05/06, NFR-03). Deploy is wired up and live on Azure App Service
+(deviates from the spec's Streamlit Community Cloud target), with a separate
+CI workflow gating format, lint, and tests on every push and PR.
 
 ## Deploy (Azure App Service)
 
@@ -142,14 +146,14 @@ so `.streamlit/secrets.toml` is never deployed.
 **CI/CD** is wired through the Azure Portal's Deployment Center (OIDC /
 federated credentials, not a publish-profile secret), which generated and
 owns `.github/workflows/main_market-indicators-dashboard.yml`. On push to
-`main` it runs the tests, builds, then deploys to the `market-indicators-dashboard`
-App Service via `azure/webapps-deploy`.
+`main` it builds, then deploys to the `market-indicators-dashboard`
+App Service via `azure/webapps-deploy`. Format, lint, and test gating lives
+in the separate `ci.yml` workflow (which also runs on pull requests).
 
 > **Careful:** because the Portal manages this file, re-running its
 > Deployment Center setup wizard can silently overwrite manual edits
-> (including the test gate and pinned action versions here). If you need to
-> reconfigure deployment from the Portal, diff the resulting file against
-> git afterward.
+> (including the pinned action versions here). If you need to reconfigure
+> deployment from the Portal, diff the resulting file against git afterward.
 
 ---
 
