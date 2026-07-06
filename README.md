@@ -179,13 +179,6 @@ the separate `ci.yml` workflow, which also runs on pull requests.
 | Rate limiting | yfinance or FRED throttles requests. | Cache aggressively; respect TTLs; retry with backoff. |
 | Data gaps | CAPE updates monthly; CBOE P/C is EOD only. | Show a staleness badge; never interpolate. |
 
-## Status
-
-Milestones M1–M4 are complete: the data layer (yfinance + FRED + scrapers),
-the offline tests, and the full Streamlit UI all run end-to-end and are
-deployed to Azure with CI gating format, lint, and tests on every push and
-PR.
-
 ## License
 
 GPL-2.0-or-later. See [`LICENSE`](LICENSE).
