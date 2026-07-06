@@ -14,3 +14,15 @@ Use these commands:
 
 Each entry under `.venv/bin/` resolves to the venv's copy of the tool,
 so Python sees the project's `site-packages` automatically.
+
+## Git & GitHub
+
+- Default branch is `main`; minor changes commit to it directly. Major changes get branched:
+  `feat/<topic>`, `fix/<topic>`, `chore/<topic>`.
+- Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`,
+  `chore:`. Imperative subject ≤ 72 chars; body explains *why*, not *what*.
+- One logical change per commit; run the lint/format/test before.
+- Update branches with `git pull --rebase`; never force-push a shared branch.
+- Use the `gh` CLI for GitHub work (`gh pr create`, `gh issue view`, …). Keep
+  PRs small and single-purpose; CI must be green before merge.
+- Update the README before tagging a new version.
