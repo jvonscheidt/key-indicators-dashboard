@@ -18,9 +18,9 @@ from dataclasses import dataclass
 REFRESH_INTERVAL_SECONDS = 15 * 60
 
 #: Cache TTLs per source, in seconds (NFR-02).
-TTL_YFINANCE = 15 * 60   # 15 minutes
-TTL_FRED = 6 * 60 * 60   # 6 hours
-TTL_SCRAPE = 60 * 60     # 1 hour
+TTL_YFINANCE = 15 * 60  # 15 minutes
+TTL_FRED = 6 * 60 * 60  # 6 hours
+TTL_SCRAPE = 60 * 60  # 1 hour
 
 #: Retry policy for HTTP fetches (NFR-03).
 RETRY_ATTEMPTS = 3
@@ -78,10 +78,10 @@ class Threshold:
 class Indicator:
     """Static metadata for one dashboard indicator."""
 
-    key: str            # stable internal id
-    label: str          # display name
-    source: str         # "yfinance" | "fred" | "scrape"
-    symbol: str         # ticker / series id / url key
+    key: str  # stable internal id
+    label: str  # display name
+    source: str  # "yfinance" | "fred" | "scrape"
+    symbol: str  # ticker / series id / url key
     unit: str = ""
     threshold: Threshold | None = None
     scale: float = 1.0  # multiplier applied to raw fetched values (FRED)

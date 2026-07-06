@@ -74,7 +74,9 @@ def _load_sp500(label: str, symbol: str, lookback_days: int) -> FetchResult:
 
 
 @st.cache_data(ttl=TTL_FRED, show_spinner=False)
-def _load_fred(label: str, symbol: str, lookback_days: int, scale: float) -> FetchResult:
+def _load_fred(
+    label: str, symbol: str, lookback_days: int, scale: float
+) -> FetchResult:
     return _checked(fetch_fred(label, symbol, lookback_days, scale))
 
 
@@ -107,7 +109,9 @@ def _fetch(key: str, lookback_days: int) -> FetchResult:
     return FetchResult.failure(ind.source, ind.label, f"unknown source {ind.source}")
 
 
-def with_last_good(result: FetchResult, store: dict[str, FetchResult], key: str) -> FetchResult:
+def with_last_good(
+    result: FetchResult, store: dict[str, FetchResult], key: str
+) -> FetchResult:
     """Fallback to the last good result when a fresh fetch fails (NFR-03).
 
     Successes are recorded in ``store``; on failure the stored result is
@@ -212,7 +216,9 @@ def sparkline(series: pd.DataFrame) -> go.Figure:
     if not s.empty:
         cutoff = s.index.max() - pd.Timedelta(days=SPARKLINE_DAYS)
         s = s[s.index >= cutoff]
-    fig = go.Figure(go.Scatter(x=s.index, y=s, mode="lines", line=dict(color=PRIMARY, width=2)))
+    fig = go.Figure(
+        go.Scatter(x=s.index, y=s, mode="lines", line=dict(color=PRIMARY, width=2))
+    )
     fig = _bare_layout(fig, height=80)
     fig.update_xaxes(visible=False)
     fig.update_yaxes(visible=False)
@@ -221,17 +227,32 @@ def sparkline(series: pd.DataFrame) -> go.Figure:
 
 def sp500_chart(series: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=series.index, y=series["price"], name="S&P 500", line=dict(color=PRIMARY)))
     fig.add_trace(
-        go.Scatter(x=series.index, y=series["ma200"], name="200-day MA", line=dict(color=ACCENT, dash="dash"))
+        go.Scatter(
+            x=series.index, y=series["price"], name="S&P 500", line=dict(color=PRIMARY)
+        )
     )
-    fig.update_layout(height=320, margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h", y=1.05))
+    fig.add_trace(
+        go.Scatter(
+            x=series.index,
+            y=series["ma200"],
+            name="200-day MA",
+            line=dict(color=ACCENT, dash="dash"),
+        )
+    )
+    fig.update_layout(
+        height=320,
+        margin=dict(l=0, r=0, t=10, b=0),
+        legend=dict(orientation="h", y=1.05),
+    )
     return fig
 
 
 def line_chart(series: pd.DataFrame, color: str = PRIMARY) -> go.Figure:
     col = series.columns[0]
-    fig = go.Figure(go.Scatter(x=series.index, y=series[col], mode="lines", line=dict(color=color)))
+    fig = go.Figure(
+        go.Scatter(x=series.index, y=series[col], mode="lines", line=dict(color=color))
+    )
     fig.update_layout(height=320, margin=dict(l=0, r=0, t=10, b=0))
     return fig
 
@@ -252,17 +273,31 @@ def putcall_chart(series: pd.DataFrame, level: float | None) -> go.Figure:
         )
     if level is not None:
         fig.add_hline(y=level, line=dict(color=ALERT, dash="dot"))
-    fig.update_layout(height=320, margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h", y=1.05))
+    fig.update_layout(
+        height=320,
+        margin=dict(l=0, r=0, t=10, b=0),
+        legend=dict(orientation="h", y=1.05),
+    )
     return fig
 
 
 def area_chart(series: pd.DataFrame, level: float | None) -> go.Figure:
     col = series.columns[0]
     fig = go.Figure(
-        go.Scatter(x=series.index, y=series[col], mode="lines", fill="tozeroy", line=dict(color=PRIMARY))
+        go.Scatter(
+            x=series.index,
+            y=series[col],
+            mode="lines",
+            fill="tozeroy",
+            line=dict(color=PRIMARY),
+        )
     )
     if level is not None:
-        fig.add_hline(y=level, line=dict(color=ALERT, dash="dot"), annotation_text=f"alert {level:g}")
+        fig.add_hline(
+            y=level,
+            line=dict(color=ALERT, dash="dot"),
+            annotation_text=f"alert {level:g}",
+        )
     fig.update_layout(height=320, margin=dict(l=0, r=0, t=10, b=0))
     return fig
 
@@ -308,7 +343,9 @@ def metric_tile(container, key: str, result: FetchResult) -> None:
                 unsafe_allow_html=True,
             )
         stale_badge(result)
-        st.plotly_chart(sparkline(result.series), width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(
+            sparkline(result.series), width="stretch", config={"displayModeBar": False}
+        )
 
 
 def panel(container, key: str, result: FetchResult, figure_fn) -> None:
@@ -345,7 +382,11 @@ def render_sidebar() -> tuple[int, bool]:
             list(LOOKBACK_OPTIONS),
             index=list(LOOKBACK_OPTIONS).index(DEFAULT_LOOKBACK),
         )
-        auto = st.toggle("Auto-refresh", value=False, help=f"Re-render every {REFRESH_INTERVAL_SECONDS // 60} min")
+        auto = st.toggle(
+            "Auto-refresh",
+            value=False,
+            help=f"Re-render every {REFRESH_INTERVAL_SECONDS // 60} min",
+        )
         if st.button("🔄 Refresh now", width="stretch"):
             st.cache_data.clear()
             # Also drop the failure-retry memo so a manual refresh always
@@ -380,7 +421,9 @@ def render_freshness(slot, results: dict[str, FetchResult]) -> None:
         if res.fetched_at is None:
             continue
         ts = pd.Timestamp(res.fetched_at)
-        if res.source not in latest or (latest[res.source] is not None and ts > latest[res.source]):
+        if res.source not in latest or (
+            latest[res.source] is not None and ts > latest[res.source]
+        ):
             latest[res.source] = ts
     with slot.container():
         st.caption("**Data freshness** (last successful fetch)")
@@ -415,8 +458,18 @@ def render_dashboard(lookback_days: int, freshness_slot) -> None:
 
     # Third row — Put/Call | EM spread.
     r3 = st.columns(2)
-    panel(r3[0], "putcall", results["putcall"], lambda s: putcall_chart(s, effective_level("putcall")))
-    panel(r3[1], "em_spread", results["em_spread"], lambda s: area_chart(s, effective_level("em_spread")))
+    panel(
+        r3[0],
+        "putcall",
+        results["putcall"],
+        lambda s: putcall_chart(s, effective_level("putcall")),
+    )
+    panel(
+        r3[1],
+        "em_spread",
+        results["em_spread"],
+        lambda s: area_chart(s, effective_level("em_spread")),
+    )
 
     render_freshness(freshness_slot, results)
 

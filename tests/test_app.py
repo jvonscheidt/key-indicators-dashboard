@@ -50,7 +50,9 @@ def test_with_last_good_records_success():
 
 def test_with_last_good_serves_stale_on_failure():
     fetched_at = datetime(2026, 7, 2, 9, 30, tzinfo=timezone.utc)
-    good = FetchResult(source="scrape", label="CAPE", value=41.0, previous=40.5, fetched_at=fetched_at)
+    good = FetchResult(
+        source="scrape", label="CAPE", value=41.0, previous=40.5, fetched_at=fetched_at
+    )
     store = {"cape": good}
     fail = FetchResult.failure("scrape", "CAPE", "boom")
 

@@ -94,7 +94,9 @@ def test_fetch_putcall_backfills_history(monkeypatch, putcall_html):
         return _render_day(putcall_html, day, data[day])
 
     monkeypatch.setattr(scrape, "_get", fake_get)
-    monkeypatch.setattr(scrape, "utcnow", lambda: datetime(2026, 6, 8, tzinfo=timezone.utc))
+    monkeypatch.setattr(
+        scrape, "utcnow", lambda: datetime(2026, 6, 8, tzinfo=timezone.utc)
+    )
 
     result = scrape.fetch_putcall("Put/Call Ratio", lookback_days=90)
 
