@@ -51,7 +51,7 @@ config.py          # All tickers, series IDs, TTLs, thresholds, scrape selectors
 data/
   base.py          # FetchResult contract + with_retry decorator + utcnow
   yf.py            # yfinance fetchers: fetch_price, fetch_sp500
-  fred.py          # FRED fetcher: fetch_em_spread
+  fred.py          # Generic FRED fetcher: fetch_fred (EM spread, Brent spot)
   scrape.py        # scrapers: fetch_cape (multpl.com), fetch_putcall (CBOE)
 app.py             # Streamlit UI: cached load() dispatcher + §8 layout
 startup.sh         # App Service launch command (Streamlit on $PORT)

@@ -6,7 +6,7 @@ Throwaway verification script. Run with:  .venv/bin/python smoke_m1.py
 from __future__ import annotations
 
 from config import INDICATORS, LOOKBACK_OPTIONS
-from data.fred import fetch_em_spread
+from data.fred import fetch_fred
 from data.yf import fetch_price, fetch_sp500
 
 LOOKBACK_DAYS = LOOKBACK_OPTIONS["3M"]
@@ -34,8 +34,9 @@ def main() -> None:
     sp = INDICATORS["sp500"]
     _show(fetch_sp500(sp.label, sp.symbol, LOOKBACK_DAYS))
 
-    em = INDICATORS["em_spread"]
-    _show(fetch_em_spread(em.label, em.symbol, LOOKBACK_DAYS))
+    for key in ("em_spread", "brent"):
+        ind = INDICATORS[key]
+        _show(fetch_fred(ind.label, ind.symbol, LOOKBACK_DAYS, ind.scale))
 
 
 if __name__ == "__main__":
