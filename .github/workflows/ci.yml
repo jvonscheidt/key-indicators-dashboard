@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,11 +16,19 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: pip
 
-      # Pin ruff to the version in requirements.txt: formatter output can
-      # change between releases, so CI must match what developers run locally.
-      - name: Install ruff
-        run: pip install ruff==0.15.16
+      # Install from requirements.txt so ruff and pytest match the pinned
+      # versions developers run locally (formatter output can drift between
+      # ruff releases).
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
       - name: Check formatting
         run: ruff format --check .
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Run tests
+        run: pytest -q
