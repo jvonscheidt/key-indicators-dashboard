@@ -120,7 +120,9 @@ def _parse_putcall_page(html: str, row_label: str) -> tuple[float, pd.Timestamp 
     raw HTML directly — no JS execution or extra dependency required.
     """
     value_re = re.compile(
-        r'name\\?"\s*:\s*\\?"' + re.escape(row_label) + r'\\?"\s*,\s*\\?"value\\?"\s*:\s*\\?"([0-9.]+)\\?"'
+        r'name\\?"\s*:\s*\\?"'
+        + re.escape(row_label)
+        + r'\\?"\s*,\s*\\?"value\\?"\s*:\s*\\?"([0-9.]+)\\?"'
     )
     match = value_re.search(html)
     if match is None:
