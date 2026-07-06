@@ -179,6 +179,3 @@ the separate `ci.yml` workflow, which also runs on pull requests.
 | Rate limiting | yfinance or FRED throttles requests. | Cache aggressively; respect TTLs; retry with backoff. |
 | Data gaps | CAPE updates monthly; CBOE P/C is EOD only. | Show a staleness badge; never interpolate. |
 
-## License
-
-GPL-2.0-or-later. See [`LICENSE`](LICENSE).
