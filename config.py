@@ -84,6 +84,7 @@ class Indicator:
     symbol: str         # ticker / series id / url key
     unit: str = ""
     threshold: Threshold | None = None
+    scale: float = 1.0  # multiplier applied to raw fetched values (FRED)
 
 
 #: yfinance-backed indicators.
@@ -106,6 +107,14 @@ INDICATORS: dict[str, Indicator] = {
         label="EUR/USD",
         source="yfinance",
         symbol="EURUSD=X",
+    ),
+    "brent": Indicator(
+        key="brent",
+        label="Brent Crude Spot ($/bbl)",
+        source="fred",
+        # EIA Crude Oil Prices: Brent - Europe, official daily spot (USD/bbl).
+        symbol="DCOILBRENTEU",
+        unit="$/bbl",
     ),
     "sp500": Indicator(
         key="sp500",
@@ -135,6 +144,8 @@ INDICATORS: dict[str, Indicator] = {
         symbol="BAMLEMCBPIOAS",
         unit="bps",
         threshold=Threshold(level=500.0, direction="above"),
+        # OAS series are quoted in percentage points; scale to basis points.
+        scale=100.0,
     ),
 }
 

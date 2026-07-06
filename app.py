@@ -31,7 +31,7 @@ from config import (
     TTL_YFINANCE,
 )
 from data.base import FetchResult
-from data.fred import fetch_em_spread
+from data.fred import fetch_fred
 from data.scrape import fetch_cape, fetch_putcall
 from data.yf import fetch_price, fetch_sp500
 
@@ -74,8 +74,8 @@ def _load_sp500(label: str, symbol: str, lookback_days: int) -> FetchResult:
 
 
 @st.cache_data(ttl=TTL_FRED, show_spinner=False)
-def _load_em(label: str, symbol: str, lookback_days: int) -> FetchResult:
-    return _checked(fetch_em_spread(label, symbol, lookback_days))
+def _load_fred(label: str, symbol: str, lookback_days: int, scale: float) -> FetchResult:
+    return _checked(fetch_fred(label, symbol, lookback_days, scale))
 
 
 @st.cache_data(ttl=TTL_SCRAPE, show_spinner=False)
@@ -97,7 +97,7 @@ def _fetch(key: str, lookback_days: int) -> FetchResult:
                 return _load_sp500(ind.label, ind.symbol, lookback_days)
             return _load_price(ind.label, ind.symbol, lookback_days)
         if ind.source == "fred":
-            return _load_em(ind.label, ind.symbol, lookback_days)
+            return _load_fred(ind.label, ind.symbol, lookback_days, ind.scale)
         if ind.source == "scrape":
             if key == "cape":
                 return _load_cape(ind.label, lookback_days)
@@ -396,12 +396,12 @@ def render_freshness(slot, results: dict[str, FetchResult]) -> None:
 
 
 def render_dashboard(lookback_days: int, freshness_slot) -> None:
-    """Fetch all seven indicators and lay out the page (§8)."""
+    """Fetch all eight indicators and lay out the page (§8)."""
     results = {key: load(key, lookback_days) for key in INDICATORS}
 
-    # Top row — three metric tiles.
-    top = st.columns(3)
-    for col, key in zip(top, ("vix", "dxy", "eurusd")):
+    # Top row — four metric tiles.
+    top = st.columns(4)
+    for col, key in zip(top, ("vix", "dxy", "eurusd", "brent")):
         metric_tile(col, key, results[key])
 
     st.divider()

@@ -1,8 +1,14 @@
-"""FRED-backed fetcher: EM Sovereign Bond Spread (ICE BofA, BAMEMBBSOAS).
+"""Generic FRED-backed fetcher (``fredapi``).
 
-Uses ``fredapi``. The API key is resolved from Streamlit secrets or the
-environment via :func:`config.get_fred_api_key`; when absent the fetcher
-returns a clean failure so the rest of the dashboard still renders (FR-06).
+Fetches any FRED series by ID and trims it to the requested lookback window.
+The API key is resolved from Streamlit secrets or the environment via
+:func:`config.get_fred_api_key`; when absent the fetcher returns a clean
+failure so the rest of the dashboard still renders (FR-06).
+
+Series that are quoted in units the dashboard wants to display differently
+(e.g. ICE BofA OAS series are in percentage points but shown in basis
+points) pass a ``scale`` multiplier — kept out of this fetcher so it stays
+series-agnostic; the per-indicator value lives in ``config.Indicator``.
 """
 
 from __future__ import annotations
@@ -24,17 +30,23 @@ def _fetch_series(api_key: str, series_id: str) -> pd.Series:
     return series.dropna()
 
 
-def fetch_em_spread(label: str, series_id: str, lookback_days: int) -> FetchResult:
-    """EM sovereign spread time series trimmed to ``lookback_days`` (FR-03)."""
+def fetch_fred(
+    label: str, series_id: str, lookback_days: int, scale: float = 1.0
+) -> FetchResult:
+    """Fetch a FRED series trimmed to ``lookback_days`` (FR-03).
+
+    ``scale`` multiplies every observation before trimming (defaults to no
+    scaling). The EM-spread indicator uses ``scale=100.0`` to convert ICE
+    BofA percentage points into the basis points its tile displays.
+    """
     api_key = get_fred_api_key()
     if not api_key:
         return FetchResult.failure("fred", label, "FRED_API_KEY not set")
     try:
         series = _fetch_series(api_key, series_id)
         series.index = pd.to_datetime(series.index)
-        # ICE BofA OAS series are quoted in percentage points; convert to
-        # basis points so the value matches the "bps" unit and bps threshold.
-        series = series * 100.0
+        if scale != 1.0:
+            series = series * scale
         cutoff = series.index.max() - pd.Timedelta(days=lookback_days)
         trimmed = series[series.index >= cutoff].rename("value")
         if trimmed.empty:
