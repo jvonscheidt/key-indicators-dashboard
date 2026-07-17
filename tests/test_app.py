@@ -42,10 +42,10 @@ def test_fmt_delta_none_when_no_previous():
 
 
 def test_with_last_good_records_success():
-    store: dict[str, FetchResult] = {}
+    store: dict[tuple[str, int], FetchResult] = {}
     good = FetchResult(source="scrape", label="CAPE", value=41.0)
-    assert app.with_last_good(good, store, "cape") is good
-    assert store["cape"] is good
+    assert app.with_last_good(good, store, ("cape", 90)) is good
+    assert store[("cape", 90)] is good
 
 
 def test_with_last_good_serves_stale_on_failure():
@@ -53,21 +53,32 @@ def test_with_last_good_serves_stale_on_failure():
     good = FetchResult(
         source="scrape", label="CAPE", value=41.0, previous=40.5, fetched_at=fetched_at
     )
-    store = {"cape": good}
+    store = {("cape", 90): good}
     fail = FetchResult.failure("scrape", "CAPE", "boom")
 
-    out = app.with_last_good(fail, store, "cape")
+    out = app.with_last_good(fail, store, ("cape", 90))
 
     assert out.ok and out.stale  # renders as a normal tile + stale badge
     assert out.value == 41.0
     assert out.error == "boom"  # fresh error carried for the badge tooltip
     assert out.fetched_at == fetched_at  # freshness caption shows last real fetch
-    assert store["cape"] is good  # failure does not overwrite the last good
+    assert store[("cape", 90)] is good  # failure does not overwrite last good
     assert not good.stale  # stored copy is untouched
 
 
 def test_with_last_good_failure_without_history_passes_through():
     fail = FetchResult.failure("scrape", "CAPE", "boom")
-    out = app.with_last_good(fail, {}, "cape")
+    out = app.with_last_good(fail, {}, ("cape", 90))
     assert out is fail
     assert not out.ok and not out.stale  # still an error badge (FR-06)
+
+
+def test_with_last_good_does_not_cross_lookbacks():
+    good = FetchResult(source="scrape", label="CAPE", value=41.0)
+    store = {("cape", 30): good}
+    fail = FetchResult.failure("scrape", "CAPE", "boom")
+
+    out = app.with_last_good(fail, store, ("cape", 365 * 5))
+
+    assert out is fail
+    assert not out.ok and not out.stale

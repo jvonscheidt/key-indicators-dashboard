@@ -7,6 +7,8 @@ additionally computes a 200-day moving average overlay (§3).
 
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 import yfinance as yf
 
@@ -24,7 +26,10 @@ def _download(symbol: str, period_days: int, ma_lead_in: int = 0) -> pd.DataFram
 
     Raises on empty results so the retry/backoff policy can engage.
     """
-    fetch_days = period_days + ma_lead_in + (10 if ma_lead_in else 0)
+    # Moving-average windows count trading sessions, while yfinance periods
+    # count calendar days. Convert the lead-in and leave room for holidays.
+    calendar_lead_in = math.ceil(ma_lead_in * 365 / 252) + 14 if ma_lead_in else 0
+    fetch_days = period_days + calendar_lead_in
     df = yf.download(
         symbol,
         period=f"{fetch_days}d",

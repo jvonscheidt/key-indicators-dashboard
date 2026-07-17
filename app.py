@@ -110,7 +110,9 @@ def _fetch(key: str, lookback_days: int) -> FetchResult:
 
 
 def with_last_good(
-    result: FetchResult, store: dict[str, FetchResult], key: str
+    result: FetchResult,
+    store: dict[tuple[str, int], FetchResult],
+    key: tuple[str, int],
 ) -> FetchResult:
     """Fallback to the last good result when a fresh fetch fails (NFR-03).
 
@@ -148,7 +150,7 @@ def load(key: str, lookback_days: int) -> FetchResult:
             failures.pop(memo_key, None)
         else:
             failures[memo_key] = (time.monotonic(), result)
-    return with_last_good(result, store, key)
+    return with_last_good(result, store, memo_key)
 
 
 # --------------------------------------------------------------------------
