@@ -1,6 +1,6 @@
 """M1 smoke test: exercise every yfinance + FRED fetcher and print results.
 
-Throwaway verification script. Run with:  .venv/bin/python smoke_m1.py
+Throwaway verification script. Run with:  python smoke_m1.py
 """
 
 from __future__ import annotations

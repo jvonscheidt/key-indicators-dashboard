@@ -6,7 +6,7 @@ package and stays Streamlit-agnostic; this module adds the UI plus the
 selector (FR-03), auto/manual refresh (FR-04), threshold alerts (FR-05),
 per-tile graceful degradation (FR-06), and freshness timestamps (FR-07).
 
-Run with:  .venv/bin/streamlit run app.py
+Run with:  streamlit run app.py
 """
 
 from __future__ import annotations
