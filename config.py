@@ -45,7 +45,7 @@ LOOKBACK_OPTIONS: dict[str, int] = {
     "1Y": 365,
     "5Y": 365 * 5,
 }
-DEFAULT_LOOKBACK = "3M"
+DEFAULT_LOOKBACK = "1Y"
 
 #: Sparkline window shown on each metric tile (FR-02).
 SPARKLINE_DAYS = 90
