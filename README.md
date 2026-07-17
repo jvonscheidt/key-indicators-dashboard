@@ -73,8 +73,8 @@ startup.sh         # App Service launch command (Streamlit on $PORT)
 scripts/
   azure-provision.sh   # one-time az CLI infra provisioning
 .github/workflows/
-  ci.yml                                 # ruff format --check + ruff check + pytest, on push & PRs
-  main_market-indicators-dashboard.yml   # Portal-managed: build + deploy on push to main
+  ci.yml                                 # black --check + ruff check + pytest, on push & PRs
+  main_market-indicators-dashboard.yml   # Portal-managed: deploy after successful main CI
 .streamlit/
   config.toml      # committed prod settings (headless, theme, no usage stats)
 tests/
@@ -117,7 +117,7 @@ TTL; retries of a still-down source are throttled to one per
 - **UI / charting:** Streamlit 1.58, Plotly 6.8
 - **Data:** yfinance 1.5, fredapi 0.5, requests + beautifulsoup4 (scrapers)
 - **Resilience:** tenacity 9.1 (retry/backoff)
-- **Tests / tooling:** pytest 9, ruff 0.15 (format + lint, enforced in CI)
+- **Tests / tooling:** pytest 9, Black 26.5, Ruff 0.15 (enforced in CI)
 
 ## Setup
 
@@ -135,6 +135,7 @@ it those two tiles degrade gracefully; the rest of the dashboard works.
 ```bash
 .venv/bin/python smoke_m1.py     # verify yfinance + FRED fetchers
 .venv/bin/streamlit run app.py   # launch the dashboard
+.venv/bin/black .                # format Python code
 .venv/bin/pytest                 # run the unit tests
 ```
 
@@ -162,9 +163,10 @@ so `.streamlit/secrets.toml` is never deployed.
 **CI/CD** is wired through the Azure Portal's Deployment Center (OIDC /
 federated credentials, not a publish-profile secret), which generated and
 owns `.github/workflows/main_market-indicators-dashboard.yml`. On push to
-`main` it builds, then deploys to the `market-indicators-dashboard` App
-Service via `azure/webapps-deploy`. Format, lint, and test gating lives in
-the separate `ci.yml` workflow, which also runs on pull requests.
+`main`, the separate `ci.yml` workflow runs formatting, lint, and tests.
+Only a successful CI run triggers the portal-managed workflow to build and
+deploy to the `market-indicators-dashboard` App Service via
+`azure/webapps-deploy`. CI also runs on pull requests.
 
 > **Careful:** because the Portal manages the deploy workflow file, re-running
 > its Deployment Center setup wizard can silently overwrite manual edits
@@ -178,4 +180,3 @@ the separate `ci.yml` workflow, which also runs on pull requests.
 | Scrape breakage | multpl.com or CBOE changes HTML structure. | Pin selectors in `config.py`; a unit test per scraper; surface parse failures as an error badge. |
 | Rate limiting | yfinance or FRED throttles requests. | Cache aggressively; respect TTLs; retry with backoff. |
 | Data gaps | CAPE updates monthly; CBOE P/C is EOD only. | Show a staleness badge; never interpolate. |
-
