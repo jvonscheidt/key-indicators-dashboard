@@ -1,5 +1,5 @@
 # Market Indicators Dashboard — pinned direct dependencies.
-# Install with:  .venv/bin/pip install -r requirements.txt
+# Install with:  pip install -r requirements.txt
 # Transitive deps are resolved by pip; only direct imports are pinned here.
 
 # UI / charting

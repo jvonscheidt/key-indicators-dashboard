@@ -1,21 +1,12 @@
-## Python environment
+## Project context
 
-This project's virtual environment lives at `.venv/`. Invoke its
-interpreter directly; do not run `source .venv/bin/activate` (it cannot
-persist between Claude's tool calls).
+See `README.md` for scope, the indicator list, architecture, and the
+FR-*/NFR-*/§ requirement IDs that code comments cite throughout `data/`
+and `app.py`.
 
-Use these commands:
-
-- Run a script: `.venv/bin/python script.py`
-- Open a REPL: `.venv/bin/python`
-- Install a package: `.venv/bin/pip install <package>`
-- Format code: `.venv/bin/black .`
-- Check formatting: `.venv/bin/black --check .`
-- Lint code: `.venv/bin/ruff check .`
-- Run tests: `.venv/bin/pytest`
-
-Each entry under `.venv/bin/` resolves to the venv's copy of the tool,
-so Python sees the project's `site-packages` automatically.
+`.streamlit/secrets.toml` holds the local `FRED_API_KEY` and is
+gitignored — never commit it or paste its contents into a commit message
+or PR description.
 
 ## Git & GitHub
 

@@ -113,7 +113,7 @@ TTL; retries of a still-down source are throttled to one per
 
 ## Tech stack
 
-- **Python** 3.11+ (venv at `.venv/` — invoke its interpreter directly; see `CLAUDE.md`)
+- **Python** 3.11+
 - **UI / charting:** Streamlit 1.58, Plotly 6.8
 - **Data:** yfinance 1.5, fredapi 0.5, requests + beautifulsoup4 (scrapers)
 - **Resilience:** tenacity 9.1 (retry/backoff)
@@ -122,7 +122,7 @@ TTL; retries of a still-down source are throttled to one per
 ## Setup
 
 ```bash
-.venv/bin/pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 The EM-spread and Brent tiles (both FRED-sourced) need a free
@@ -133,10 +133,10 @@ it those two tiles degrade gracefully; the rest of the dashboard works.
 ## Running
 
 ```bash
-.venv/bin/python smoke_m1.py     # verify yfinance + FRED fetchers
-.venv/bin/streamlit run app.py   # launch the dashboard
-.venv/bin/black .                # format Python code
-.venv/bin/pytest                 # run the unit tests
+python smoke_m1.py     # verify yfinance + FRED fetchers
+streamlit run app.py   # launch the dashboard
+black .                # format Python code
+pytest                 # run the unit tests
 ```
 
 ## Deploy (Azure App Service)
