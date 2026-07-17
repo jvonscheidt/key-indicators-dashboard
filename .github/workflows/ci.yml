@@ -18,14 +18,13 @@ jobs:
           python-version: '3.11'
           cache: pip
 
-      # Install from requirements.txt so ruff and pytest match the pinned
-      # versions developers run locally (formatter output can drift between
-      # ruff releases).
+      # Install from requirements.txt so Black, Ruff, and pytest match the
+      # pinned versions developers run locally.
       - name: Install dependencies
         run: pip install -r requirements.txt
 
       - name: Check formatting
-        run: ruff format --check .
+        run: black --check .
 
       - name: Lint
         run: ruff check .
