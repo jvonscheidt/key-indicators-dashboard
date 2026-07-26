@@ -8,6 +8,8 @@ and `app.py`.
 gitignored — never commit it or paste its contents into a commit message
 or PR description.
 
+Use sub-agents or tools wherever possible.
+
 ## Git & GitHub
 
 - Default branch is `main`; minor changes commit to it directly. Major changes get branched:
