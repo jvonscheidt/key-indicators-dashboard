@@ -11,7 +11,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 import pandas as pd
-from tenacity import retry, stop_after_attempt, wait_exponential
+import requests
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from config import RETRY_ATTEMPTS, RETRY_BACKOFF_BASE
 
@@ -70,16 +71,30 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def is_transient(exc: BaseException) -> bool:
+    """Whether a failed fetch is worth retrying.
+
+    HTTP 4xx responses (bad key, unknown series, blocked) fail the same way on
+    every attempt, so retrying only adds latency and load on a host that is
+    already refusing us. 408 and 429 are the exceptions: both clear with time.
+    """
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        status = exc.response.status_code
+        return not 400 <= status < 500 or status in (408, 429)
+    return True
+
+
 def with_retry(func):
     """Decorator: retry an HTTP-bound fetch with exponential backoff (NFR-03).
 
     Wraps :mod:`tenacity` so the policy stays centralized in ``config.py``.
-    Retries on any exception; the caller is responsible for turning a final
-    failure into a :class:`FetchResult.failure`.
+    Retries any exception that :func:`is_transient` accepts; the caller is
+    responsible for turning a final failure into a :class:`FetchResult.failure`.
     """
 
     return retry(
         reraise=True,
+        retry=retry_if_exception(is_transient),
         stop=stop_after_attempt(RETRY_ATTEMPTS),
         wait=wait_exponential(multiplier=RETRY_BACKOFF_BASE),
     )(func)
