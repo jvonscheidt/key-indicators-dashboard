@@ -58,8 +58,10 @@ are configured in `config.py` and can be overridden live from the sidebar.
 ## Architecture & layout
 
 Data fetching is isolated in `data/`, one module per source and
-Streamlit-agnostic; `app.py` is the UI plus the cached `load()` dispatcher
-that applies the per-source TTLs (`NFR-02`).
+Streamlit-agnostic; `app.py` is the UI plus the cached `load_all()` loader
+that applies the per-source TTLs (`NFR-02`). Each source is fetched and
+cached once at the longest lookback (5Y) and trimmed to the selected
+lookback in the UI, so switching lookback never refetches.
 
 ```
 config.py          # All tickers, series IDs, TTLs, thresholds, scrape selectors, FRED key resolver
@@ -68,7 +70,7 @@ data/
   yf.py            # yfinance fetchers: fetch_price, fetch_sp500
   fred.py          # Generic FRED fetcher: fetch_fred (EM spread, Brent spot)
   scrape.py        # scrapers: fetch_cape (multpl.com), fetch_putcall (CBOE)
-app.py             # Streamlit UI: cached load() dispatcher + §8 layout
+app.py             # Streamlit UI: cached load_all() loader + §8 layout
 startup.sh         # App Service launch command (Streamlit on $PORT)
 scripts/
   azure-provision.sh   # one-time az CLI infra provisioning
@@ -80,7 +82,11 @@ scripts/
 tests/
   fixtures/        # captured CAPE + Put/Call page HTML samples
   test_scrape.py   # offline unit tests for both scrapers (Risks §9)
-  test_app.py      # offline tests: formatting helpers (FR-02) + stale fallback
+  test_yf.py       # S&P 500 200-day MA lead-in
+  test_fred.py     # FRED fetcher: parsing, trimming, key redaction
+  test_base.py     # retry policy (which errors are retried)
+  test_config.py   # FRED key lookup
+  test_app.py      # formatting, stale fallback, loading, lookback, refresh cooldown
 smoke_m1.py        # Throwaway verification: exercises the yfinance + FRED fetchers
 requirements.txt   # pinned direct dependencies
 ```
@@ -101,15 +107,24 @@ Every fetcher returns a uniform `FetchResult` (value, previous, series,
 timestamp, ok/error, stale) so the UI renders success, error badges
 (`FR-06`), and freshness signals (`FR-07`) the same way for all sources.
 `timestamp` is the as-of date of the data itself (a trading day / series
-date); `fetched_at` is the wall-clock UTC time the fetcher last retrieved
-it, which is what the sidebar's "Data freshness" caption shows. When a
-refresh fails, `app.load()` falls back to the session's last good result
-marked `stale` (`NFR-03`) and the tile shows an amber staleness badge
+date), shown under every tile; it turns into an amber "OUTDATED" badge when
+it is older than the indicator's `max_age_days` in `config.py` (4 days for
+daily market data, 14 for Brent, 45 for monthly CAPE). `fetched_at` is the
+wall-clock UTC time the fetcher last retrieved the data; the sidebar's
+"Data freshness" caption shows the oldest one per source. When a source has
+no history back to the selected lookback (CBOE Put/Call is backfilled about
+three weeks; FRED carries about three years of the EM spread), the panel
+says where its history starts.
+
+When a refresh fails, `app.load_all()` falls back to the session's last good
+result marked `stale` (`NFR-03`) and the tile shows an amber staleness badge
 (`Risks §9`); a source that has never succeeded still gets the error badge.
 Failures are not memoized by `st.cache_data` (the cached loaders raise), so
 a recovered source comes back on the next rerun instead of after the source
 TTL; retries of a still-down source are throttled to one per
-`FAILURE_RETRY_SECONDS` (60 s), and "Refresh now" bypasses the throttle.
+`FAILURE_RETRY_SECONDS` (60 s). "Refresh now" bypasses that throttle and
+clears the data caches, which are shared by every visitor, so it is limited
+to once per `REFRESH_COOLDOWN_SECONDS` (5 min) across all sessions.
 
 ## Tech stack
 
