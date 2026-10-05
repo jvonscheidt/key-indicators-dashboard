@@ -91,6 +91,7 @@ tests/
   test_app.py      # formatting, stale fallback, loading, lookback, refresh cooldown
 smoke_m1.py        # Throwaway verification: exercises the yfinance + FRED fetchers
 requirements.txt   # pinned direct dependencies
+ruff.toml          # Ruff lint rules (explicit; formatting is Black)
 ```
 
 Local-only (gitignored, not deployed):
@@ -134,7 +135,7 @@ to once per `REFRESH_COOLDOWN_SECONDS` (5 min) across all sessions.
 - **UI / charting:** Streamlit 1.58, Plotly 6.8
 - **Data:** yfinance 1.5, requests (FRED API + scrapers), beautifulsoup4
 - **Resilience:** tenacity 9.1 (retry/backoff)
-- **Tests / tooling:** pytest 9, Black 26.5, Ruff 0.15 (enforced in CI)
+- **Tests / tooling:** pytest 9, Black 26.5, Ruff 0.16 (rules in `ruff.toml`; enforced in CI)
 
 ## Setup
 

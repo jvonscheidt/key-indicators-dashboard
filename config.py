@@ -227,7 +227,7 @@ def get_fred_api_key() -> str | None:
 
         if "FRED_API_KEY" in st.secrets:
             key = str(st.secrets["FRED_API_KEY"])
-    except Exception:
+    except Exception:  # noqa: BLE001, S110 - no secrets file/Streamlit: use env
         pass
     if key is None:
         key = os.environ.get("FRED_API_KEY")

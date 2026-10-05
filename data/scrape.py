@@ -174,7 +174,7 @@ def fetch_putcall(label: str, lookback_days: int) -> FetchResult:
             return FetchResult.failure("scrape", label, "no put/call data scraped")
 
         # Dedupe by trade date (holidays collapse onto the prior trading day).
-        by_date = {ts: val for ts, val in days}
+        by_date = dict(days)
         series = pd.Series(by_date, name="value").sort_index().to_frame()
         value = float(series["value"].iloc[-1])
         previous = float(series["value"].iloc[-2]) if len(series) > 1 else None

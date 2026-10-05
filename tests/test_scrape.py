@@ -7,7 +7,7 @@ graceful-degradation contract without hitting multpl.com or CBOE.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 
 import pytest
@@ -94,16 +94,14 @@ def test_fetch_putcall_backfills_history(monkeypatch, putcall_html):
         return _render_day(putcall_html, day, data[day])
 
     monkeypatch.setattr(scrape, "_get", fake_get)
-    monkeypatch.setattr(
-        scrape, "utcnow", lambda: datetime(2026, 6, 8, tzinfo=timezone.utc)
-    )
+    monkeypatch.setattr(scrape, "utcnow", lambda: datetime(2026, 6, 8, tzinfo=UTC))
 
     result = scrape.fetch_putcall("Put/Call Ratio", lookback_days=90)
 
     assert result.ok
     # fetched_at is when we retrieved it (mocked "now"), distinct from
     # timestamp (the latest session's trade date) checked below.
-    assert result.fetched_at == datetime(2026, 6, 8, tzinfo=timezone.utc)
+    assert result.fetched_at == datetime(2026, 6, 8, tzinfo=UTC)
     assert len(result.series) == 3  # three distinct sessions, deduped
     assert list(result.series.index.strftime("%Y-%m-%d")) == sessions  # sorted
     assert result.value == pytest.approx(0.97)  # latest session
