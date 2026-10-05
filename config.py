@@ -26,6 +26,10 @@ TTL_SCRAPE = 60 * 60  # 1 hour
 RETRY_ATTEMPTS = 3
 RETRY_BACKOFF_BASE = 1.0  # seconds; exponential: 1, 2, 4, ...
 
+#: Per-request network timeout for HTTP fetches, in seconds (NFR-03). Without
+#: one, a connection that stalls after connecting blocks its tile forever.
+HTTP_TIMEOUT_SECONDS = 20
+
 #: How long to remember a failed fetch before retrying it, in seconds.
 #: Failures are deliberately not cached by st.cache_data (so a recovered
 #: source comes back on the next rerun, not after the full source TTL);
@@ -180,6 +184,16 @@ PUTCALL_HISTORY_DAYS = 21
 PUTCALL_MAX_WORKERS = 8
 
 # --------------------------------------------------------------------------
+# FRED API
+# --------------------------------------------------------------------------
+
+FRED_OBSERVATIONS_URL = "https://api.stlouisfed.org/fred/series/observations"
+#: Extra calendar days requested before the lookback window. The window is
+#: anchored to the latest observation, which can lag today (Brent runs about a
+#: week behind), so ask for a little more than ``lookback_days``.
+FRED_START_SLACK_DAYS = 30
+
+# --------------------------------------------------------------------------
 # Secrets
 # --------------------------------------------------------------------------
 
@@ -187,15 +201,20 @@ PUTCALL_MAX_WORKERS = 8
 def get_fred_api_key() -> str | None:
     """Resolve the FRED API key from Streamlit secrets or the environment.
 
-    Returns ``None`` if unset so the EM-spread tile can degrade gracefully
+    Returns ``None`` if unset or blank so the EM-spread tile can degrade gracefully
     instead of crashing the dashboard.
     """
+    key = None
     # Lazy import: this module must stay importable outside Streamlit (tests).
     try:
         import streamlit as st
 
         if "FRED_API_KEY" in st.secrets:
-            return str(st.secrets["FRED_API_KEY"])
+            key = str(st.secrets["FRED_API_KEY"])
     except Exception:
         pass
-    return os.environ.get("FRED_API_KEY")
+    if key is None:
+        key = os.environ.get("FRED_API_KEY")
+    # A pasted key often carries stray whitespace, which breaks the request.
+    key = (key or "").strip()
+    return key or None

@@ -20,6 +20,7 @@ from bs4 import BeautifulSoup
 from config import (
     CAPE_TABLE_ID,
     CAPE_TABLE_URL,
+    HTTP_TIMEOUT_SECONDS,
     PUTCALL_HISTORY_DAYS,
     PUTCALL_MAX_WORKERS,
     PUTCALL_RATIO_LABEL,
@@ -29,7 +30,6 @@ from data.base import FetchResult, utcnow, with_retry
 
 #: A browser-ish UA avoids the bare-``python-requests`` blocks some sites apply.
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; MarketDashboard/1.0)"}
-_HTTP_TIMEOUT = 20
 
 
 @with_retry
@@ -39,7 +39,7 @@ def _get(url: str) -> str:
     Raising lets the shared :func:`with_retry` policy engage on transient
     failures; the caller converts a final failure into a ``FetchResult``.
     """
-    resp = requests.get(url, headers=_HEADERS, timeout=_HTTP_TIMEOUT)
+    resp = requests.get(url, headers=_HEADERS, timeout=HTTP_TIMEOUT_SECONDS)
     resp.raise_for_status()
     return resp.text
 

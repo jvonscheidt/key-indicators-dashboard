@@ -7,6 +7,8 @@ metric tiles depend on (FR-02).
 
 from __future__ import annotations
 
+import threading
+from collections import Counter
 from datetime import datetime, timezone
 
 import app
@@ -82,3 +84,45 @@ def test_with_last_good_does_not_cross_lookbacks():
 
     assert out is fail
     assert not out.ok and not out.stale
+
+
+# --------------------------------------------------------------------------
+# Concurrent loading + failure throttle (FR-06, NFR-01)
+# --------------------------------------------------------------------------
+
+
+def test_load_all_fetches_sources_concurrently(monkeypatch):
+    monkeypatch.setattr(app.st, "session_state", {})
+    # Every fetch waits until all of them are in flight, so this only
+    # completes if the sources run concurrently rather than one by one.
+    barrier = threading.Barrier(len(app.INDICATORS), timeout=5)
+
+    def fake_fetch(key, lookback_days):
+        barrier.wait()
+        return FetchResult(source="test", label=key, value=1.0)
+
+    monkeypatch.setattr(app, "_fetch", fake_fetch)
+    results = app.load_all(30)
+
+    assert list(results) == list(app.INDICATORS)
+    assert all(r.ok for r in results.values())
+
+
+def test_load_all_throttles_failed_sources(monkeypatch):
+    monkeypatch.setattr(app.st, "session_state", {})
+    calls: Counter[str] = Counter()
+
+    def fake_fetch(key, lookback_days):
+        calls[key] += 1
+        if key == "cape":
+            return FetchResult.failure("scrape", "CAPE", "down")
+        return FetchResult(source="test", label=key, value=1.0)
+
+    monkeypatch.setattr(app, "_fetch", fake_fetch)
+    app.load_all(30)
+    results = app.load_all(30)
+
+    assert calls["cape"] == 1  # still inside FAILURE_RETRY_SECONDS
+    assert calls["vix"] == 2
+    assert not results["cape"].ok
+    assert results["vix"].ok

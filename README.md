@@ -115,7 +115,7 @@ TTL; retries of a still-down source are throttled to one per
 
 - **Python** 3.11+
 - **UI / charting:** Streamlit 1.58, Plotly 6.8
-- **Data:** yfinance 1.5, fredapi 0.5, requests + beautifulsoup4 (scrapers)
+- **Data:** yfinance 1.5, requests (FRED API + scrapers), beautifulsoup4
 - **Resilience:** tenacity 9.1 (retry/backoff)
 - **Tests / tooling:** pytest 9, Black 26.5, Ruff 0.15 (enforced in CI)
 
