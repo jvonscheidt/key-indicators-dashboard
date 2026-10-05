@@ -4,7 +4,7 @@
 
 # UI / charting
 streamlit==1.64.0
-plotly==6.8.0
+plotly==7.1.0
 
 # Data sources
 yfinance==1.7.0
