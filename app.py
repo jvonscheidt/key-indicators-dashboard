@@ -12,10 +12,12 @@ Run with:  streamlit run app.py
 from __future__ import annotations
 
 import html
+import math
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from datetime import date
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -27,13 +29,15 @@ from config import (
     FAILURE_RETRY_SECONDS,
     INDICATORS,
     LOOKBACK_OPTIONS,
+    MAX_LOOKBACK_DAYS,
+    REFRESH_COOLDOWN_SECONDS,
     REFRESH_INTERVAL_SECONDS,
     SPARKLINE_DAYS,
     TTL_FRED,
     TTL_SCRAPE,
     TTL_YFINANCE,
 )
-from data.base import FetchResult
+from data.base import FetchResult, utcnow
 from data.fred import fetch_fred
 from data.scrape import fetch_cape, fetch_putcall
 from data.yf import fetch_price, fetch_sp500
@@ -45,10 +49,12 @@ ALERT = "#d62728"
 # --------------------------------------------------------------------------
 # Cached loaders — one per source so each gets its own TTL (NFR-02). These
 # wrap the pure fetchers; the FetchResult (incl. its DataFrame) is picklable
-# so st.cache_data can memoize it keyed on the arguments. Failures are
-# raised as _FetchFailed instead of returned: st.cache_data only memoizes
-# successful returns, so a recovered source comes back on the next rerun
-# rather than after the full source TTL.
+# so st.cache_data can memoize it keyed on the arguments. Every source is
+# fetched once at MAX_LOOKBACK_DAYS and trimmed per lookback in the UI
+# (for_lookback), so the lookback is not part of any cache key and changing
+# it never refetches. Failures are raised as _FetchFailed instead of
+# returned: st.cache_data only memoizes successful returns, so a recovered
+# source comes back on the next rerun rather than after the full source TTL.
 # --------------------------------------------------------------------------
 
 
@@ -67,55 +73,78 @@ def _checked(result: FetchResult) -> FetchResult:
 
 
 @st.cache_data(ttl=TTL_YFINANCE, show_spinner=False)
-def _load_price(label: str, symbol: str, lookback_days: int) -> FetchResult:
-    return _checked(fetch_price(label, symbol, lookback_days))
+def _load_price(label: str, symbol: str) -> FetchResult:
+    return _checked(fetch_price(label, symbol, MAX_LOOKBACK_DAYS))
 
 
 @st.cache_data(ttl=TTL_YFINANCE, show_spinner=False)
-def _load_sp500(label: str, symbol: str, lookback_days: int) -> FetchResult:
-    return _checked(fetch_sp500(label, symbol, lookback_days))
+def _load_sp500(label: str, symbol: str) -> FetchResult:
+    return _checked(fetch_sp500(label, symbol, MAX_LOOKBACK_DAYS))
 
 
 @st.cache_data(ttl=TTL_FRED, show_spinner=False)
-def _load_fred(
-    label: str, symbol: str, lookback_days: int, scale: float
-) -> FetchResult:
-    return _checked(fetch_fred(label, symbol, lookback_days, scale))
+def _load_fred(label: str, symbol: str, scale: float) -> FetchResult:
+    return _checked(fetch_fred(label, symbol, MAX_LOOKBACK_DAYS, scale))
 
 
 @st.cache_data(ttl=TTL_SCRAPE, show_spinner=False)
-def _load_cape(label: str, lookback_days: int) -> FetchResult:
-    return _checked(fetch_cape(label, lookback_days))
+def _load_cape(label: str) -> FetchResult:
+    return _checked(fetch_cape(label, MAX_LOOKBACK_DAYS))
 
 
 @st.cache_data(ttl=TTL_SCRAPE, show_spinner=False)
-def _load_putcall(label: str, lookback_days: int) -> FetchResult:
-    return _checked(fetch_putcall(label, lookback_days))
+def _load_putcall(label: str) -> FetchResult:
+    return _checked(fetch_putcall(label, MAX_LOOKBACK_DAYS))
 
 
-def _fetch(key: str, lookback_days: int) -> FetchResult:
+_LOADERS = (_load_price, _load_sp500, _load_fred, _load_cape, _load_putcall)
+
+
+def _fetch(key: str) -> FetchResult:
     """Dispatch one indicator to its cached loader by source."""
     ind = INDICATORS[key]
     try:
         if ind.source == "yfinance":
             if key == "sp500":
-                return _load_sp500(ind.label, ind.symbol, lookback_days)
-            return _load_price(ind.label, ind.symbol, lookback_days)
+                return _load_sp500(ind.label, ind.symbol)
+            return _load_price(ind.label, ind.symbol)
         if ind.source == "fred":
-            return _load_fred(ind.label, ind.symbol, lookback_days, ind.scale)
+            return _load_fred(ind.label, ind.symbol, ind.scale)
         if ind.source == "scrape":
             if key == "cape":
-                return _load_cape(ind.label, lookback_days)
-            return _load_putcall(ind.label, lookback_days)
+                return _load_cape(ind.label)
+            return _load_putcall(ind.label)
     except _FetchFailed as exc:
         return exc.result
     return FetchResult.failure(ind.source, ind.label, f"unknown source {ind.source}")
 
 
+@st.cache_resource
+def _refresh_clock() -> dict:
+    """When "Refresh now" last cleared the caches, shared by all sessions."""
+    return {"lock": threading.Lock(), "at": None}
+
+
+def request_refresh() -> float | None:
+    """Clear the data caches unless a refresh ran within the cooldown.
+
+    The caches are shared by every visitor of the public app, so a refresh
+    re-hits every source for everyone. Returns ``None`` if the caches were
+    cleared, otherwise the seconds left until a refresh is allowed again.
+    """
+    clock = _refresh_clock()
+    with clock["lock"]:
+        now = time.monotonic()
+        if clock["at"] is not None and now - clock["at"] < REFRESH_COOLDOWN_SECONDS:
+            return REFRESH_COOLDOWN_SECONDS - (now - clock["at"])
+        clock["at"] = now
+    for loader in _LOADERS:
+        loader.clear()
+    return None
+
+
 def with_last_good(
-    result: FetchResult,
-    store: dict[tuple[str, int], FetchResult],
-    key: tuple[str, int],
+    result: FetchResult, store: dict[str, FetchResult], key: str
 ) -> FetchResult:
     """Fallback to the last good result when a fresh fetch fails (NFR-03).
 
@@ -133,8 +162,10 @@ def with_last_good(
     return replace(last, stale=True, error=result.error)
 
 
-def load_all(lookback_days: int) -> dict[str, FetchResult]:
+def load_all() -> dict[str, FetchResult]:
     """Fetch every indicator, serving the session's last good value on failure.
+
+    Results cover ``MAX_LOOKBACK_DAYS``; trim them with :func:`for_lookback`.
 
     Sources are fetched concurrently, so a slow or hanging source delays the
     page by its own latency rather than adding to every other source's (FR-06,
@@ -151,7 +182,7 @@ def load_all(lookback_days: int) -> dict[str, FetchResult]:
     results: dict[str, FetchResult] = {}
     pending = []
     for key in INDICATORS:
-        memo = failures.get((key, lookback_days))
+        memo = failures.get(key)
         if memo is not None and time.monotonic() - memo[0] < FAILURE_RETRY_SECONDS:
             results[key] = memo[1]
         else:
@@ -161,20 +192,80 @@ def load_all(lookback_days: int) -> dict[str, FetchResult]:
 
     def fetch(key: str) -> FetchResult:
         add_script_run_ctx(threading.current_thread(), ctx)
-        return _fetch(key, lookback_days)
+        return _fetch(key)
 
     if pending:
         with ThreadPoolExecutor(max_workers=len(pending)) as pool:
             for key, result in zip(pending, pool.map(fetch, pending)):
                 if result.ok:
-                    failures.pop((key, lookback_days), None)
+                    failures.pop(key, None)
                 else:
-                    failures[(key, lookback_days)] = (time.monotonic(), result)
+                    failures[key] = (time.monotonic(), result)
                 results[key] = result
-    return {
-        key: with_last_good(results[key], store, (key, lookback_days))
-        for key in INDICATORS
-    }
+    return {key: with_last_good(results[key], store, key) for key in INDICATORS}
+
+
+# --------------------------------------------------------------------------
+# Lookback trimming & data age (FR-03, Risks §9)
+# --------------------------------------------------------------------------
+
+#: Minimum slack before a series counts as starting after the lookback window,
+#: so weekends and holidays at the window edge don't trigger the history note.
+#: Coarser series get more (see history_start).
+_HISTORY_SLACK_DAYS = 7
+
+
+def for_lookback(result: FetchResult, lookback_days: int) -> FetchResult:
+    """Trim a full-window result's series to the selected lookback (FR-03).
+
+    The window is anchored to the latest observation. At least two points
+    are kept so a coarse series (CAPE is monthly) still draws a line; the
+    series is never interpolated (Risks §9).
+    """
+    series = result.series
+    if not result.ok or series.empty:
+        return result
+    cutoff = series.index.max() - pd.Timedelta(days=lookback_days)
+    trimmed = series[series.index >= cutoff]
+    if len(trimmed) < 2:
+        trimmed = series.tail(2)
+    return replace(result, series=trimmed)
+
+
+def history_start(result: FetchResult, lookback_days: int) -> pd.Timestamp | None:
+    """First date of the series if the source has no data back to the window.
+
+    CBOE Put/Call is only backfilled a few weeks, and FRED only carries about
+    three years of the ICE BofA EM spread; this lets the panel say so instead
+    of silently showing a shorter window.
+    """
+    series = result.series
+    if not result.ok or series.empty:
+        return None
+    start = series.index.min()
+    cutoff = series.index.max() - pd.Timedelta(days=lookback_days)
+    # A monthly series (CAPE) can start up to a month after the cutoff with no
+    # history missing, so allow two typical gaps between points.
+    gap = series.index.to_series().diff().median()
+    slack = pd.Timedelta(days=_HISTORY_SLACK_DAYS)
+    if pd.notna(gap):
+        slack = max(slack, 2 * gap)
+    if start - cutoff > slack:
+        return start
+    return None
+
+
+def data_age_days(result: FetchResult, today: date) -> int | None:
+    """Calendar days between ``today`` and the latest data point's date."""
+    if result.timestamp is None:
+        return None
+    return (today - result.timestamp.date()).days
+
+
+def is_outdated(key: str, result: FetchResult, today: date) -> bool:
+    """Whether the latest data is older than the indicator normally runs."""
+    age = data_age_days(result, today)
+    return age is not None and age > INDICATORS[key].max_age_days
 
 
 # --------------------------------------------------------------------------
@@ -333,16 +424,32 @@ def area_chart(series: pd.DataFrame, level: float | None) -> go.Figure:
 # --------------------------------------------------------------------------
 
 
-def stale_badge(result: FetchResult) -> None:
-    """Amber badge when serving a last-good value after a failed refresh."""
-    if not result.stale:
-        return
-    tooltip = html.escape(result.error or "", quote=True)
-    st.markdown(
-        f"<span title='{tooltip}' style='color:{ACCENT};font-weight:600'>"
-        "🕓 STALE — refresh failed, showing last good data</span>",
-        unsafe_allow_html=True,
-    )
+def freshness_badges(key: str, result: FetchResult) -> None:
+    """As-of date of the data, plus amber badges when it is stale (Risks §9).
+
+    Two independent cases: the latest data point is older than the indicator
+    normally runs (the source stopped publishing, or monthly CAPE is late),
+    and a refresh failed so the session's last good data is being served.
+    """
+    today = utcnow().date()
+    if result.timestamp is not None:
+        as_of = f"{result.timestamp:%Y-%m-%d}"
+        if is_outdated(key, result, today):
+            age = data_age_days(result, today)
+            st.markdown(
+                f"<span style='color:{ACCENT};font-weight:600'>"
+                f"🕓 OUTDATED — latest data is {age} days old (as of {as_of})</span>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.caption(f"As of {as_of}")
+    if result.stale:
+        tooltip = html.escape(result.error or "", quote=True)
+        st.markdown(
+            f"<span title='{tooltip}' style='color:{ACCENT};font-weight:600'>"
+            "🕓 STALE — refresh failed, showing last good data</span>",
+            unsafe_allow_html=True,
+        )
 
 
 def metric_tile(container, key: str, result: FetchResult) -> None:
@@ -368,13 +475,17 @@ def metric_tile(container, key: str, result: FetchResult) -> None:
                 f"{ind.threshold.direction} {effective_level(key):g}</span>",
                 unsafe_allow_html=True,
             )
-        stale_badge(result)
+        freshness_badges(key, result)
+        # The full cached window, not the lookback: the sparkline always
+        # covers SPARKLINE_DAYS, even on the 1M lookback (FR-02).
         st.plotly_chart(
             sparkline(result.series), width="stretch", config={"displayModeBar": False}
         )
 
 
-def panel(container, key: str, result: FetchResult, figure_fn) -> None:
+def panel(
+    container, key: str, result: FetchResult, figure_fn, lookback_days: int
+) -> None:
     """Second/third-row chart panel with header, current value, and alert."""
     ind = INDICATORS[key]
     with container:
@@ -382,6 +493,8 @@ def panel(container, key: str, result: FetchResult, figure_fn) -> None:
         if not result.ok:
             st.error(f"⚠️ {result.error}", icon="🚫")
             return
+        start = history_start(result, lookback_days)
+        result = for_lookback(result, lookback_days)
         cols = st.columns([1, 1])
         cols[0].metric("Current", fmt_value(key, result.value), fmt_delta(key, result))
         if is_breached(key, result.value):
@@ -390,7 +503,12 @@ def panel(container, key: str, result: FetchResult, figure_fn) -> None:
                 f"{ind.threshold.direction} {effective_level(key):g}</div>",
                 unsafe_allow_html=True,
             )
-        stale_badge(result)
+        freshness_badges(key, result)
+        if start is not None:
+            st.caption(
+                f"History starts {start:%Y-%m-%d}: the source has no earlier "
+                "data, so the chart is shorter than the selected lookback."
+            )
         st.plotly_chart(figure_fn(result.series), width="stretch")
 
 
@@ -414,11 +532,16 @@ def render_sidebar() -> tuple[int, bool]:
             help=f"Re-render every {REFRESH_INTERVAL_SECONDS // 60} min",
         )
         if st.button("🔄 Refresh now", width="stretch"):
-            st.cache_data.clear()
-            # Also drop the failure-retry memo so a manual refresh always
-            # re-attempts sources that recently failed.
-            st.session_state.pop("_recent_failures", None)
-            st.rerun()
+            wait = request_refresh()
+            if wait is None:
+                # Also drop the failure-retry memo so a manual refresh always
+                # re-attempts sources that recently failed.
+                st.session_state.pop("_recent_failures", None)
+                st.rerun()
+            st.toast(
+                f"Data was refreshed in the last {REFRESH_COOLDOWN_SECONDS // 60} "
+                f"min. Try again in {math.ceil(wait / 60)} min."
+            )
 
         with st.expander("Alert thresholds"):
             for key, ind in INDICATORS.items():
@@ -441,20 +564,21 @@ def render_freshness(slot, results: dict[str, FetchResult]) -> None:
     additive (elements accumulate until the next full run), but writing into
     ``st.empty`` *replaces* its content — so each refresh redraws the captions
     instead of duplicating them.
+
+    Shows the *oldest* fetch per source, so one indicator serving stale data
+    isn't hidden behind a sibling from the same source that refreshed fine.
     """
-    latest: dict[str, pd.Timestamp | None] = {}
+    oldest: dict[str, pd.Timestamp] = {}
     for res in results.values():
         if res.fetched_at is None:
             continue
         ts = pd.Timestamp(res.fetched_at)
-        if res.source not in latest or (
-            latest[res.source] is not None and ts > latest[res.source]
-        ):
-            latest[res.source] = ts
+        if res.source not in oldest or ts < oldest[res.source]:
+            oldest[res.source] = ts
     with slot.container():
-        st.caption("**Data freshness** (last successful fetch)")
+        st.caption("**Data freshness** (oldest successful fetch per source)")
         for source in ("yfinance", "fred", "scrape"):
-            ts = latest.get(source)
+            ts = oldest.get(source)
             shown = ts.strftime("%Y-%m-%d %H:%M:%S UTC") if ts is not None else "—"
             st.caption(f"{source}: {shown}")
 
@@ -466,9 +590,10 @@ def render_freshness(slot, results: dict[str, FetchResult]) -> None:
 
 def render_dashboard(lookback_days: int, freshness_slot) -> None:
     """Fetch all eight indicators and lay out the page (§8)."""
-    results = load_all(lookback_days)
+    results = load_all()
 
-    # Top row — four metric tiles.
+    # Top row — four metric tiles (value + fixed-length sparkline; the
+    # lookback only applies to the panel charts below).
     top = st.columns(4)
     for col, key in zip(top, ("vix", "dxy", "eurusd", "brent")):
         metric_tile(col, key, results[key])
@@ -477,8 +602,10 @@ def render_dashboard(lookback_days: int, freshness_slot) -> None:
 
     # Second row — S&P 500 vs MA | Shiller CAPE.
     r2 = st.columns(2)
-    panel(r2[0], "sp500", results["sp500"], sp500_chart)
-    panel(r2[1], "cape", results["cape"], lambda s: line_chart(s, ACCENT))
+    panel(r2[0], "sp500", results["sp500"], sp500_chart, lookback_days)
+    panel(
+        r2[1], "cape", results["cape"], lambda s: line_chart(s, ACCENT), lookback_days
+    )
 
     st.divider()
 
@@ -489,12 +616,14 @@ def render_dashboard(lookback_days: int, freshness_slot) -> None:
         "putcall",
         results["putcall"],
         lambda s: putcall_chart(s, effective_level("putcall")),
+        lookback_days,
     )
     panel(
         r3[1],
         "em_spread",
         results["em_spread"],
         lambda s: area_chart(s, effective_level("em_spread")),
+        lookback_days,
     )
 
     render_freshness(freshness_slot, results)

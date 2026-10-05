@@ -37,6 +37,11 @@ HTTP_TIMEOUT_SECONDS = 20
 #: on every widget interaction.
 FAILURE_RETRY_SECONDS = 60
 
+#: Minimum gap between manual "Refresh now" clicks, across all sessions. The
+#: data caches are shared by every visitor, so each refresh re-hits every
+#: source for everyone; this keeps repeated clicks from getting us rate-limited.
+REFRESH_COOLDOWN_SECONDS = 5 * 60
+
 # --------------------------------------------------------------------------
 # Lookback periods (FR-03)
 # --------------------------------------------------------------------------
@@ -50,6 +55,9 @@ LOOKBACK_OPTIONS: dict[str, int] = {
     "5Y": 365 * 5,
 }
 DEFAULT_LOOKBACK = "1Y"
+#: Every source is fetched and cached once at this window; the app trims to
+#: the selected lookback, so switching lookback never triggers a refetch.
+MAX_LOOKBACK_DAYS = max(LOOKBACK_OPTIONS.values())
 
 #: Sparkline window shown on each metric tile (FR-02).
 SPARKLINE_DAYS = 90
@@ -89,6 +97,10 @@ class Indicator:
     unit: str = ""
     threshold: Threshold | None = None
     scale: float = 1.0  # multiplier applied to raw fetched values (FRED)
+    #: Oldest the latest data point may normally be, in calendar days, before
+    #: the tile flags it as outdated (Risks §9). The default covers daily
+    #: market data across a long weekend.
+    max_age_days: int = 4
 
 
 #: yfinance-backed indicators.
@@ -119,6 +131,8 @@ INDICATORS: dict[str, Indicator] = {
         # EIA Crude Oil Prices: Brent - Europe, official daily spot (USD/bbl).
         symbol="DCOILBRENTEU",
         unit="$/bbl",
+        # EIA publishes with roughly a week's lag.
+        max_age_days=14,
     ),
     "sp500": Indicator(
         key="sp500",
@@ -132,6 +146,7 @@ INDICATORS: dict[str, Indicator] = {
         source="scrape",
         symbol="cape",
         threshold=Threshold(level=35.0, direction="above"),
+        max_age_days=45,  # monthly series
     ),
     "putcall": Indicator(
         key="putcall",
@@ -150,6 +165,7 @@ INDICATORS: dict[str, Indicator] = {
         threshold=Threshold(level=500.0, direction="above"),
         # OAS series are quoted in percentage points; scale to basis points.
         scale=100.0,
+        max_age_days=7,
     ),
 }
 
@@ -170,9 +186,9 @@ CAPE_TABLE_ID = "datatable"
 
 #: CBOE's daily market-statistics page embeds the day's ratios in its
 #: server-rendered (Next.js RSC) payload as {"name": ..., "value": ...}
-#: objects, alongside a "selectedDate" trade date. Only the current EOD
-#: snapshot is published — there is no history feed, so the tile shows a
-#: single point (Risks §9: no interpolation).
+#: objects, alongside a "selectedDate" trade date. Each page holds a single
+#: day's EOD snapshot — there is no history feed (see the backfill below;
+#: Risks §9: no interpolation).
 PUTCALL_URL = "https://www.cboe.com/markets/us/options/market-statistics/daily/"
 #: The exact row name to read out of the page payload.
 PUTCALL_RATIO_LABEL = "TOTAL PUT/CALL RATIO"
