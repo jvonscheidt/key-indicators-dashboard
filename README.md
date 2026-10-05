@@ -74,6 +74,8 @@ app.py             # Streamlit UI: cached load_all() loader + §8 layout
 startup.sh         # App Service launch command (Streamlit on $PORT)
 scripts/
   azure-provision.sh   # one-time az CLI infra provisioning
+.github/
+  dependabot.yml   # weekly grouped pip + Actions update PRs (7-day release cooldown)
 .github/workflows/
   ci.yml                                 # black --check + ruff check + pytest, on push & PRs
   main_market-indicators-dashboard.yml   # Portal-managed: deploy after successful main CI

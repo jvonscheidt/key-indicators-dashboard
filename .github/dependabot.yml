@@ -1,0 +1,50 @@
+# Dependabot version updates. PRs run the normal CI (Black, Ruff, pytest on
+# Python 3.11); Dependabot branches never match the deploy gate, so nothing
+# ships until a PR is merged to main.
+version: 2
+
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # Skip releases younger than a week: most compromised or broken releases
+    # are pulled within days.
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # Formatters/linters/test runner: one PR, since a Black or Ruff bump
+      # can come with reformatting or new lint findings.
+      dev-tools:
+        patterns:
+          - black
+          - ruff
+          - pytest
+      # Runtime minor/patch bumps together; majors get their own PRs.
+      runtime:
+        exclude-patterns:
+          - black
+          - ruff
+          - pytest
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions:
+        patterns:
+          - "*"
