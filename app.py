@@ -12,12 +12,15 @@ Run with:  streamlit run app.py
 from __future__ import annotations
 
 import html
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
 from config import (
     DEFAULT_LOOKBACK,
@@ -130,8 +133,13 @@ def with_last_good(
     return replace(last, stale=True, error=result.error)
 
 
-def load(key: str, lookback_days: int) -> FetchResult:
-    """Fetch one indicator, serving the session's last good value on failure.
+def load_all(lookback_days: int) -> dict[str, FetchResult]:
+    """Fetch every indicator, serving the session's last good value on failure.
+
+    Sources are fetched concurrently, so a slow or hanging source delays the
+    page by its own latency rather than adding to every other source's (FR-06,
+    NFR-01). Only the cached ``_fetch`` calls run on worker threads; session
+    state is read and written on the script thread.
 
     Failures bypass st.cache_data (see the loaders above), so a recovered
     source is retried on the next rerun. A session-level memo throttles those
@@ -140,17 +148,33 @@ def load(key: str, lookback_days: int) -> FetchResult:
     """
     store = st.session_state.setdefault("_last_good", {})
     failures = st.session_state.setdefault("_recent_failures", {})
-    memo_key = (key, lookback_days)
-    memo = failures.get(memo_key)
-    if memo is not None and time.monotonic() - memo[0] < FAILURE_RETRY_SECONDS:
-        result = memo[1]
-    else:
-        result = _fetch(key, lookback_days)
-        if result.ok:
-            failures.pop(memo_key, None)
+    results: dict[str, FetchResult] = {}
+    pending = []
+    for key in INDICATORS:
+        memo = failures.get((key, lookback_days))
+        if memo is not None and time.monotonic() - memo[0] < FAILURE_RETRY_SECONDS:
+            results[key] = memo[1]
         else:
-            failures[memo_key] = (time.monotonic(), result)
-    return with_last_good(result, store, memo_key)
+            pending.append(key)
+
+    ctx = get_script_run_ctx()
+
+    def fetch(key: str) -> FetchResult:
+        add_script_run_ctx(threading.current_thread(), ctx)
+        return _fetch(key, lookback_days)
+
+    if pending:
+        with ThreadPoolExecutor(max_workers=len(pending)) as pool:
+            for key, result in zip(pending, pool.map(fetch, pending)):
+                if result.ok:
+                    failures.pop((key, lookback_days), None)
+                else:
+                    failures[(key, lookback_days)] = (time.monotonic(), result)
+                results[key] = result
+    return {
+        key: with_last_good(results[key], store, (key, lookback_days))
+        for key in INDICATORS
+    }
 
 
 # --------------------------------------------------------------------------
@@ -442,7 +466,7 @@ def render_freshness(slot, results: dict[str, FetchResult]) -> None:
 
 def render_dashboard(lookback_days: int, freshness_slot) -> None:
     """Fetch all eight indicators and lay out the page (§8)."""
-    results = {key: load(key, lookback_days) for key in INDICATORS}
+    results = load_all(lookback_days)
 
     # Top row — four metric tiles.
     top = st.columns(4)
