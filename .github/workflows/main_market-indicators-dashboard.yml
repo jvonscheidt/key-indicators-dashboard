@@ -14,9 +14,61 @@ on:
       - main
   workflow_dispatch:
 
+# Serialise deploys so two quick pushes can't overlap in Azure. A newer pending
+# run replaces an older pending one; the running deploy is never cancelled.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
+  # Decides whether this run may deploy, and which commit.
+  #  - workflow_run: the `branches` filter matches the triggering run's head
+  #    branch, which a fork PR can also name `main`. Only accept green CI runs
+  #    from a push to this repository.
+  #  - workflow_dispatch: only from `main`, and only if CI passed for that commit.
+  #  - Either way, skip commits that are no longer the tip of `main`, so a slow
+  #    older run can't overwrite a newer deploy.
+  gate:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read #Required to look up CI runs
+      contents: read
+    outputs:
+      deploy: ${{ steps.check.outputs.deploy }}
+      sha: ${{ steps.check.outputs.sha }}
+
+    steps:
+      - name: Check commit is the green tip of main
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          tip=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$SHA" != "$tip" ]; then
+            echo "::notice::$SHA is no longer the tip of main ($tip); skipping deploy."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            conclusion=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
+              --event push --commit "$SHA" --limit 1 --json conclusion --jq '.[0].conclusion // ""')
+            if [ "$conclusion" != "success" ]; then
+              echo "::error::CI has not passed for $SHA (latest: ${conclusion:-no run}); refusing to deploy."
+              exit 1
+            fi
+          fi
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
   build:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    needs: gate
+    if: needs.gate.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read #This is required for actions/checkout
@@ -24,7 +76,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ needs.gate.outputs.sha }}
+          persist-credentials: false
 
       - name: Set up Python version
         uses: actions/setup-python@v6
@@ -44,9 +97,15 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: python-app
+          # Hidden files are dropped by default, which silently left out
+          # .streamlit/config.toml. Include them, minus repo/tooling metadata.
+          include-hidden-files: true
           path: |
             .
             !antenv/
+            !.git/
+            !.github/
+            !.claude/
 
       # 🚫 Opting Out of Oryx Build
       # If you prefer to disable the Oryx build process during deployment, follow these steps:

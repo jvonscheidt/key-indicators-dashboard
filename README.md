@@ -164,9 +164,18 @@ so `.streamlit/secrets.toml` is never deployed.
 federated credentials, not a publish-profile secret), which generated and
 owns `.github/workflows/main_market-indicators-dashboard.yml`. On push to
 `main`, the separate `ci.yml` workflow runs formatting, lint, and tests.
-Only a successful CI run triggers the portal-managed workflow to build and
+A successful CI run triggers the portal-managed workflow to build and
 deploy to the `market-indicators-dashboard` App Service via
-`azure/webapps-deploy`. CI also runs on pull requests.
+`azure/webapps-deploy`. CI also runs on pull requests, but its `gate` job
+only deploys a commit that:
+
+- comes from a CI run triggered by a **push** to this repository (pull
+  requests, including fork branches named `main`, never deploy);
+- is still the tip of `main` (an older run finishing late is skipped);
+- for a manual **Run workflow**, was dispatched from `main` and has a
+  passing push-triggered CI run.
+
+Deploys are serialised by a `deploy-production` concurrency group.
 
 > **Careful:** because the Portal manages the deploy workflow file, re-running
 > its Deployment Center setup wizard can silently overwrite manual edits
