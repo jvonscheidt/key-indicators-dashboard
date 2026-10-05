@@ -8,7 +8,7 @@ sources uniformly: render on success, show an error badge on failure
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 import pandas as pd
 import requests
@@ -63,12 +63,12 @@ class FetchResult:
         return d / self.previous * 100.0
 
     @classmethod
-    def failure(cls, source: str, label: str, error: str) -> "FetchResult":
+    def failure(cls, source: str, label: str, error: str) -> FetchResult:
         return cls(source=source, label=label, ok=False, error=error)
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def is_transient(exc: BaseException) -> bool:

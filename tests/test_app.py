@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import threading
 from collections import Counter
-from datetime import date, datetime, timezone
+from datetime import date, datetime, UTC
 
 import pandas as pd
 import pytest
@@ -55,7 +55,7 @@ def test_with_last_good_records_success():
 
 
 def test_with_last_good_serves_stale_on_failure():
-    fetched_at = datetime(2026, 7, 2, 9, 30, tzinfo=timezone.utc)
+    fetched_at = datetime(2026, 7, 2, 9, 30, tzinfo=UTC)
     good = FetchResult(
         source="scrape", label="CAPE", value=41.0, previous=40.5, fetched_at=fetched_at
     )
@@ -135,7 +135,7 @@ def test_load_all_throttles_failed_sources(monkeypatch):
 def test_default_lookback_is_an_option():
     # render_sidebar indexes LOOKBACK_OPTIONS by the default; drift crashes it.
     assert config.DEFAULT_LOOKBACK in config.LOOKBACK_OPTIONS
-    assert config.MAX_LOOKBACK_DAYS == max(config.LOOKBACK_OPTIONS.values())
+    assert max(config.LOOKBACK_OPTIONS.values()) == config.MAX_LOOKBACK_DAYS
 
 
 # --------------------------------------------------------------------------
@@ -197,7 +197,10 @@ def test_history_start_allows_a_monthly_series_its_spacing():
 
 def test_is_outdated_uses_per_indicator_age():
     result = FetchResult(
-        source="fred", label="Brent", value=80.0, timestamp=datetime(2026, 9, 29)
+        source="fred",
+        label="Brent",
+        value=80.0,
+        timestamp=pd.Timestamp("2026-09-29").to_pydatetime(),
     )
     today = date(2026, 10, 5)  # 6 days later
     assert app.data_age_days(result, today) == 6
@@ -239,7 +242,7 @@ def test_refresh_clears_only_data_loaders(fake_refresh):
 
 
 def test_refresh_is_refused_within_cooldown(fake_refresh, monkeypatch):
-    clock, loaders = fake_refresh
+    _, loaders = fake_refresh
     monkeypatch.setattr(app.time, "monotonic", lambda: 1000.0)
     app.request_refresh()
 

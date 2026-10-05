@@ -196,7 +196,7 @@ def load_all() -> dict[str, FetchResult]:
 
     if pending:
         with ThreadPoolExecutor(max_workers=len(pending)) as pool:
-            for key, result in zip(pending, pool.map(fetch, pending)):
+            for key, result in zip(pending, pool.map(fetch, pending), strict=True):
                 if result.ok:
                     failures.pop(key, None)
                 else:
@@ -318,7 +318,7 @@ def is_breached(key: str, value: float | None) -> bool:
 def _bare_layout(fig: go.Figure, height: int) -> go.Figure:
     fig.update_layout(
         height=height,
-        margin=dict(l=0, r=0, t=4, b=0),
+        margin={"l": 0, "r": 0, "t": 4, "b": 0},
         showlegend=False,
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
@@ -334,7 +334,7 @@ def sparkline(series: pd.DataFrame) -> go.Figure:
         cutoff = s.index.max() - pd.Timedelta(days=SPARKLINE_DAYS)
         s = s[s.index >= cutoff]
     fig = go.Figure(
-        go.Scatter(x=s.index, y=s, mode="lines", line=dict(color=PRIMARY, width=2))
+        go.Scatter(x=s.index, y=s, mode="lines", line={"color": PRIMARY, "width": 2})
     )
     fig = _bare_layout(fig, height=80)
     fig.update_xaxes(visible=False)
@@ -346,7 +346,7 @@ def sp500_chart(series: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            x=series.index, y=series["price"], name="S&P 500", line=dict(color=PRIMARY)
+            x=series.index, y=series["price"], name="S&P 500", line={"color": PRIMARY}
         )
     )
     fig.add_trace(
@@ -354,13 +354,13 @@ def sp500_chart(series: pd.DataFrame) -> go.Figure:
             x=series.index,
             y=series["ma200"],
             name="200-day MA",
-            line=dict(color=ACCENT, dash="dash"),
+            line={"color": ACCENT, "dash": "dash"},
         )
     )
     fig.update_layout(
         height=320,
-        margin=dict(l=0, r=0, t=10, b=0),
-        legend=dict(orientation="h", y=1.05),
+        margin={"l": 0, "r": 0, "t": 10, "b": 0},
+        legend={"orientation": "h", "y": 1.05},
     )
     return fig
 
@@ -368,9 +368,9 @@ def sp500_chart(series: pd.DataFrame) -> go.Figure:
 def line_chart(series: pd.DataFrame, color: str = PRIMARY) -> go.Figure:
     col = series.columns[0]
     fig = go.Figure(
-        go.Scatter(x=series.index, y=series[col], mode="lines", line=dict(color=color))
+        go.Scatter(x=series.index, y=series[col], mode="lines", line={"color": color})
     )
-    fig.update_layout(height=320, margin=dict(l=0, r=0, t=10, b=0))
+    fig.update_layout(height=320, margin={"l": 0, "r": 0, "t": 10, "b": 0})
     return fig
 
 
@@ -385,15 +385,15 @@ def putcall_chart(series: pd.DataFrame, level: float | None) -> go.Figure:
                 x=series.index,
                 y=s.rolling(10, min_periods=1).mean(),
                 name="10-day avg",
-                line=dict(color=ACCENT),
+                line={"color": ACCENT},
             )
         )
     if level is not None:
-        fig.add_hline(y=level, line=dict(color=ALERT, dash="dot"))
+        fig.add_hline(y=level, line={"color": ALERT, "dash": "dot"})
     fig.update_layout(
         height=320,
-        margin=dict(l=0, r=0, t=10, b=0),
-        legend=dict(orientation="h", y=1.05),
+        margin={"l": 0, "r": 0, "t": 10, "b": 0},
+        legend={"orientation": "h", "y": 1.05},
     )
     return fig
 
@@ -406,16 +406,16 @@ def area_chart(series: pd.DataFrame, level: float | None) -> go.Figure:
             y=series[col],
             mode="lines",
             fill="tozeroy",
-            line=dict(color=PRIMARY),
+            line={"color": PRIMARY},
         )
     )
     if level is not None:
         fig.add_hline(
             y=level,
-            line=dict(color=ALERT, dash="dot"),
+            line={"color": ALERT, "dash": "dot"},
             annotation_text=f"alert {level:g}",
         )
-    fig.update_layout(height=320, margin=dict(l=0, r=0, t=10, b=0))
+    fig.update_layout(height=320, margin={"l": 0, "r": 0, "t": 10, "b": 0})
     return fig
 
 
@@ -595,7 +595,7 @@ def render_dashboard(lookback_days: int, freshness_slot) -> None:
     # Top row — four metric tiles (value + fixed-length sparkline; the
     # lookback only applies to the panel charts below).
     top = st.columns(4)
-    for col, key in zip(top, ("vix", "dxy", "eurusd", "brent")):
+    for col, key in zip(top, ("vix", "dxy", "eurusd", "brent"), strict=True):
         metric_tile(col, key, results[key])
 
     st.divider()
