@@ -12,5 +12,12 @@ headless = true
 [browser]
 gatherUsageStats = false
 
-[theme]
+# Set per mode, not under a bare [theme]: any [theme] option replaces the
+# built-in themes with one light-based "Custom Theme", which drops the
+# "Use system setting" (auto light/dark) choice. [theme.light] / [theme.dark]
+# keep both modes and auto switching.
+[theme.light]
+primaryColor = "#0078d4"
+
+[theme.dark]
 primaryColor = "#0078d4"
