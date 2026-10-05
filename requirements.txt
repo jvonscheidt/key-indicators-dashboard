@@ -8,7 +8,6 @@ plotly==6.8.0
 
 # Data sources
 yfinance==1.5.1
-fredapi==0.5.2
 requests==2.34.2
 beautifulsoup4==4.15.0
 
