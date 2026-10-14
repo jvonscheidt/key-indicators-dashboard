@@ -132,8 +132,8 @@ to once per `REFRESH_COOLDOWN_SECONDS` (5 min) across all sessions.
 ## Tech stack
 
 - **Python** 3.11+
-- **UI / charting:** Streamlit 1.58, Plotly 6.8
-- **Data:** yfinance 1.5, requests (FRED API + scrapers), beautifulsoup4
+- **UI / charting:** Streamlit 1.64, Plotly 7.1
+- **Data:** yfinance 1.7, requests (FRED API + scrapers), beautifulsoup4
 - **Resilience:** tenacity 9.1 (retry/backoff)
 - **Tests / tooling:** pytest 9, Black 26.5, Ruff 0.16 (rules in `ruff.toml`; enforced in CI)
 
