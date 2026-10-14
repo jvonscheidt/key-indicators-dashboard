@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import pandas as pd
 
+from config import HTTP_TIMEOUT_SECONDS
 from data import yf
 
 
 def test_short_sp500_lookback_has_ma200(monkeypatch):
     def fake_download(symbol: str, *, period: str, **kwargs) -> pd.DataFrame:
+        assert kwargs.get("timeout") == HTTP_TIMEOUT_SECONDS
         calendar_days = int(period.removesuffix("d"))
         end = pd.Timestamp("2026-07-17")
         index = pd.bdate_range(end=end, periods=calendar_days * 5 // 7)

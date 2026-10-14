@@ -12,7 +12,7 @@ import math
 import pandas as pd
 import yfinance as yf
 
-from config import SP500_MA_WINDOW
+from config import HTTP_TIMEOUT_SECONDS, SP500_MA_WINDOW
 from data.base import FetchResult, utcnow, with_retry
 
 
@@ -36,6 +36,7 @@ def _download(symbol: str, period_days: int, ma_lead_in: int = 0) -> pd.DataFram
         interval="1d",
         auto_adjust=False,
         progress=False,
+        timeout=HTTP_TIMEOUT_SECONDS,
     )
     if df is None or df.empty:
         raise ValueError(f"yfinance returned no data for {symbol}")
