@@ -134,20 +134,20 @@ def _parse_putcall_page(html: str, row_label: str) -> tuple[float, pd.Timestamp 
     return value, trade_date
 
 
-def _fetch_putcall_day(date_str: str) -> tuple[pd.Timestamp, float] | None:
-    """Fetch one trading day via ``?dt=``; return (trade_date, value) or None.
+def _fetch_putcall_day(date_str: str) -> tuple[pd.Timestamp, float] | Exception:
+    """Fetch one trading day via ``?dt=``; return ``(trade_date, value)`` or the error.
 
-    A single bad/missing day must not sink the whole series, so failures are
-    swallowed here and simply dropped by the caller.
+    A single bad/missing day must not sink the whole series, so the caller
+    drops individual errors unless every day in the window failed.
     """
     try:
         value, trade_date = _parse_putcall_page(
             _get(f"{PUTCALL_URL}?dt={date_str}"), PUTCALL_RATIO_LABEL
         )
-    except Exception:  # noqa: BLE001 - one day failing is non-fatal
-        return None
+    except Exception as exc:  # noqa: BLE001 - one day failing is non-fatal
+        return exc
     if trade_date is None:
-        return None
+        return ValueError("selectedDate not found on page")
     return trade_date, value
 
 
@@ -169,9 +169,11 @@ def fetch_putcall(label: str, lookback_days: int) -> FetchResult:
             if (today - timedelta(days=n)).weekday() < 5
         ]
         with ThreadPoolExecutor(max_workers=PUTCALL_MAX_WORKERS) as pool:
-            days = [d for d in pool.map(_fetch_putcall_day, weekdays) if d is not None]
+            outcomes = list(pool.map(_fetch_putcall_day, weekdays))
+        days = [o for o in outcomes if not isinstance(o, Exception)]
         if not days:
-            return FetchResult.failure("scrape", label, "no put/call data scraped")
+            err = str(outcomes[0]) if outcomes else "no put/call data scraped"
+            return FetchResult.failure("scrape", label, err)
 
         # Dedupe by trade date (holidays collapse onto the prior trading day).
         by_date = dict(days)

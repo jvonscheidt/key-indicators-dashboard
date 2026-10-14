@@ -127,4 +127,4 @@ def test_fetch_putcall_failure_degrades(monkeypatch):
 
     assert not result.ok
     assert result.value is None
-    assert result.error
+    assert "TOTAL PUT/CALL RATIO" in result.error
