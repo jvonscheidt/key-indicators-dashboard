@@ -294,6 +294,14 @@ def fmt_delta(key: str, result: FetchResult) -> str | None:
     return out
 
 
+def delta_color(key: str) -> str:
+    """Metric delta color: inverse for risk indicators ('above') where a rise is bad."""
+    ind = INDICATORS[key]
+    if ind.threshold is not None and ind.threshold.direction == "above":
+        return "inverse"
+    return "normal"
+
+
 def effective_level(key: str) -> float | None:
     """Threshold level for ``key``, honouring any session-state override."""
     ind = INDICATORS[key]
@@ -460,14 +468,11 @@ def metric_tile(container, key: str, result: FetchResult) -> None:
             st.metric(ind.label, "—")
             st.error(f"⚠️ {result.error}", icon="🚫")
             return
-        # Risk indicators (threshold "above") read better with inverse colors:
-        # a rise is bad, so show it red.
-        inverse = ind.threshold is not None and ind.threshold.direction == "above"
         st.metric(
             ind.label,
             fmt_value(key, result.value),
             fmt_delta(key, result),
-            delta_color="inverse" if inverse else "normal",
+            delta_color=delta_color(key),
         )
         if is_breached(key, result.value):
             st.markdown(
@@ -496,7 +501,12 @@ def panel(
         start = history_start(result, lookback_days)
         result = for_lookback(result, lookback_days)
         cols = st.columns([1, 1])
-        cols[0].metric("Current", fmt_value(key, result.value), fmt_delta(key, result))
+        cols[0].metric(
+            "Current",
+            fmt_value(key, result.value),
+            fmt_delta(key, result),
+            delta_color=delta_color(key),
+        )
         if is_breached(key, result.value):
             cols[1].markdown(
                 f"<div style='padding-top:18px;color:{ALERT};font-weight:600'>⚠ ALERT — "

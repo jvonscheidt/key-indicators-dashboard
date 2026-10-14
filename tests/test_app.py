@@ -42,6 +42,13 @@ def test_fmt_delta_none_when_no_previous():
     assert app.fmt_delta("cape", res) is None
 
 
+def test_delta_color_inverts_risk_indicators():
+    for key in ("vix", "cape", "putcall", "em_spread"):
+        assert app.delta_color(key) == "inverse"
+    for key in ("dxy", "eurusd", "brent", "sp500"):
+        assert app.delta_color(key) == "normal"
+
+
 # --------------------------------------------------------------------------
 # Last-good / stale fallback (NFR-03, Risks §9)
 # --------------------------------------------------------------------------
