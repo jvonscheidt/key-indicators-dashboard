@@ -78,13 +78,6 @@ class Threshold:
     level: float
     direction: str  # "above" | "below"
 
-    def breached(self, value: float | None) -> bool:
-        if value is None:
-            return False
-        if self.direction == "above":
-            return value > self.level
-        return value < self.level
-
 
 @dataclass(frozen=True)
 class Indicator:
@@ -176,11 +169,8 @@ SP500_MA_WINDOW = 200
 # Scraper selectors (pinned here so breakage is a config fix; see Risks)
 # --------------------------------------------------------------------------
 
-CAPE_URL = "https://www.multpl.com/shiller-pe"
-#: multpl.com renders the current value in <div id="current"> ... </div>.
-CAPE_CURRENT_SELECTOR = "#current"
-#: The month-by-month history (used for the sparkline) lives on a sub-page,
-#: in a <table id="datatable"> with Date / Value columns.
+#: Shiller CAPE month-by-month history on multpl.com: a <table id="datatable">
+#: with Date / Value columns (the latest row is also the current reading).
 CAPE_TABLE_URL = "https://www.multpl.com/shiller-pe/table/by-month"
 CAPE_TABLE_ID = "datatable"
 
