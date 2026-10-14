@@ -3,7 +3,7 @@
 # Transitive deps are resolved by pip; only direct imports are pinned here.
 
 # UI / charting
-streamlit==1.64.0
+streamlit==1.65.0
 plotly==7.1.0
 
 # Data sources
