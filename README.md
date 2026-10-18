@@ -77,8 +77,8 @@ scripts/
 .github/
   dependabot.yml   # weekly grouped pip + Actions update PRs (7-day release cooldown)
 .github/workflows/
-  ci.yml                                 # black --check + ruff check + pytest, on push & PRs
-  main_market-indicators-dashboard.yml   # Portal-managed: deploy after successful main CI
+  ci.yml           # black --check + ruff check + pytest, on push & PRs
+  deploy.yml       # deploy to App Service after successful main CI
 .streamlit/
   config.toml      # committed prod settings (headless, theme, no usage stats)
 tests/
@@ -160,7 +160,11 @@ pytest                 # run the unit tests
 ## Deploy (Azure App Service)
 
 The dashboard is live on Azure App Service (a deliberate deviation from the
-original Streamlit Community Cloud target).
+original Streamlit Community Cloud target) at
+<https://key-indicators-dashboard.azurewebsites.net>: app
+`key-indicators-dashboard` in resource group `market-dashboard-rg`
+(Switzerland North, B1), subscription *Visual Studio Professional
+Subscription* in the *von Scheidt Consulting - Dev* tenant.
 
 **Infrastructure** (resource group, Linux Python App Service plan/webapp,
 `FRED_API_KEY` app setting, Oryx build flag, websockets, Always On,
@@ -169,21 +173,25 @@ original Streamlit Community Cloud target).
 
 ```bash
 az login
+az account set --subscription <subscription-id>
 FRED_API_KEY=xxxx ./scripts/azure-provision.sh
 # override defaults as needed:
-APP_NAME=my-unique-name LOCATION=westeurope SKU=B1 \
+APP_NAME=my-unique-name LOCATION=switzerlandnorth SKU=B1 \
   FRED_API_KEY=xxxx ./scripts/azure-provision.sh
 ```
 
 `APP_NAME` must be globally unique. The FRED key comes from the environment,
 so `.streamlit/secrets.toml` is never deployed.
 
-**CI/CD** is wired through the Azure Portal's Deployment Center (OIDC /
-federated credentials, not a publish-profile secret), which generated and
-owns `.github/workflows/main_market-indicators-dashboard.yml`. On push to
-`main`, the separate `ci.yml` workflow runs formatting, lint, and tests.
-A successful CI run triggers the portal-managed workflow to build and
-deploy to the `market-indicators-dashboard` App Service via
+**CI/CD** authenticates with OIDC (federated credentials, not a
+publish-profile secret): the Entra app registration
+`gh-key-indicators-dashboard-deploy` trusts
+`repo:jvonscheidt/key-indicators-dashboard:ref:refs/heads/main` and holds
+*Website Contributor* on the web app only. Its IDs live in the repo secrets
+`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`. On push
+to `main`, the separate `ci.yml` workflow runs formatting, lint, and tests.
+A successful CI run triggers `.github/workflows/deploy.yml` to build and
+deploy to the `key-indicators-dashboard` App Service via
 `azure/webapps-deploy`. CI also runs on pull requests, but its `gate` job
 only deploys a commit that:
 
@@ -195,10 +203,9 @@ only deploys a commit that:
 
 Deploys are serialised by a `deploy-production` concurrency group.
 
-> **Careful:** because the Portal manages the deploy workflow file, re-running
-> its Deployment Center setup wizard can silently overwrite manual edits
-> (including the pinned action versions there). If you reconfigure deployment
-> from the Portal, diff the resulting file against git afterward.
+> **Careful:** don't connect the app through the Portal's Deployment Center
+> wizard — it generates its own workflow and secrets and can silently
+> overwrite `deploy.yml`. If you do, diff the result against git afterward.
 
 ## Risks & mitigations (`Risks §9`)
 

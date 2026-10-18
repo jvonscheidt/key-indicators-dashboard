@@ -2,7 +2,7 @@
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 # More info on Python, GitHub Actions, and Azure App Service: https://aka.ms/python-webapps-actions
 
-name: Build and deploy Python app to Azure Web App - market-indicators-dashboard
+name: Build and deploy Python app to Azure Web App - key-indicators-dashboard
 
 on:
   workflow_run:
@@ -129,14 +129,17 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v3
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_754CD0433C6245AB94A2ADA2BFB26794 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D779D5429DB346A59ACD1A869E262E6D }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_15B20744684144FC89DFC3777AE72FA1 }}
+          # OIDC: app registration gh-key-indicators-dashboard-deploy in the
+          # von Scheidt Consulting - Dev tenant, federated on refs/heads/main,
+          # with Website Contributor on the web app only.
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
-          app-name: 'market-indicators-dashboard'
+          app-name: 'key-indicators-dashboard'
           slot-name: 'Production'
           
