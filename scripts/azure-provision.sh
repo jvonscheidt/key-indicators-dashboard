@@ -2,32 +2,30 @@
 #
 # Provision the Market Indicators dashboard infrastructure on Azure App
 # Service (Linux, Python). One-time / idempotent — re-running updates the
-# existing resources. Ongoing code deploys are handled by GitHub Actions via
-# the Azure Portal's Deployment Center (OIDC), which owns
-# .github/workflows/main_market-indicators-dashboard.yml — not this script.
+# existing resources. Ongoing code deploys are handled by GitHub Actions
+# (.github/workflows/deploy.yml, OIDC) — not this script.
 #
 # Prerequisites:
 #   - Azure CLI installed and logged in:  az login
+#   - The target subscription selected:   az account set --subscription <id>
 #   - FRED_API_KEY exported in your shell (it is set as an App Service
 #     Application Setting; config.get_fred_api_key() reads it from the env).
 #
 # Usage:
 #   FRED_API_KEY=xxxx ./scripts/azure-provision.sh
-#   APP_NAME=my-unique-name LOCATION=westeurope ./scripts/azure-provision.sh
+#   APP_NAME=my-unique-name LOCATION=switzerlandnorth ./scripts/azure-provision.sh
 #
-# After it finishes: connect this app to the GitHub repo via Portal > the
-# app > Deployment Center (GitHub Actions, OIDC) using APP_NAME as the app
-# name. That wizard generates/updates the deploy workflow and its secrets —
-# see the "Careful" note in README.md's Deploy section before re-running it.
+# After it finishes: give GitHub Actions an OIDC identity with Website
+# Contributor on the app — see "CI/CD" in README.md's Deploy section.
 #
 set -euo pipefail
 
 # --- Configuration (override any of these via environment variables) --------
 RESOURCE_GROUP="${RESOURCE_GROUP:-market-dashboard-rg}"
-LOCATION="${LOCATION:-westeurope}"
+LOCATION="${LOCATION:-switzerlandnorth}"   # westeurope rejects new subscriptions
 PLAN_NAME="${PLAN_NAME:-market-dashboard-plan}"
 SKU="${SKU:-B1}"                          # B1 supports Always On + websockets
-APP_NAME="${APP_NAME:-market-indicators-dashboard}"   # must be globally unique
+APP_NAME="${APP_NAME:-key-indicators-dashboard}"   # must be globally unique
 PYTHON_VERSION="${PYTHON_VERSION:-3.11}"
 
 # --- Preflight --------------------------------------------------------------
@@ -78,5 +76,5 @@ az webapp config set \
 
 URL="https://$(az webapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" --query defaultHostName -o tsv)"
 echo "==> Infrastructure ready. App URL: $URL"
-echo "    Next: Portal > $APP_NAME > Deployment Center > connect this GitHub"
-echo "    repo (OIDC). Push to main to deploy."
+echo "    Next: set up the GitHub OIDC identity (README > Deploy > CI/CD),"
+echo "    then push to main to deploy."
