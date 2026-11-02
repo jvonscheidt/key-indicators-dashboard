@@ -3,7 +3,7 @@
 # Transitive deps are resolved by pip; only direct imports are pinned here.
 
 # UI / charting
-streamlit==1.65.0
+streamlit==1.66.1
 plotly==7.1.0
 
 # Data sources
@@ -12,7 +12,7 @@ requests==2.34.2
 beautifulsoup4==4.15.0
 
 # Core data handling
-pandas==3.0.6
+pandas==3.1.0
 
 # Resilience
 tenacity==9.2.1
