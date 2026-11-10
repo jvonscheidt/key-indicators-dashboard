@@ -34,6 +34,8 @@ updates:
           - minor
           - patch
 
+  # Actions are pinned to commit SHAs; Dependabot bumps the SHA and the
+  # trailing "# vX.Y.Z" comment together so the pins do not go stale.
   - package-ecosystem: github-actions
     directory: /
     schedule:
