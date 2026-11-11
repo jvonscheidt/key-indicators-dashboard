@@ -6,6 +6,10 @@ on:
       - main
   pull_request:
 
+# The checks only read the repository; keep the default token read-only.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
